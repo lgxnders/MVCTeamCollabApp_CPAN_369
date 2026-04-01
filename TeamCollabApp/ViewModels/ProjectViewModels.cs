@@ -3,6 +3,17 @@ using TeamCollabApp.Models;
 
 namespace TeamCollabApp.ViewModels
 {
+    public class ProjectSummaryViewModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public bool IsPublicLink { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string OwnerDisplayName { get; set; } = string.Empty;
+        public int OtherMemberCount { get; set; }
+    }
+
     public class CreateProjectViewModel
     {
         [Required, MaxLength(200)]
@@ -52,8 +63,8 @@ namespace TeamCollabApp.ViewModels
     {
         public int ProjectId { get; set; }
 
-        [Required, EmailAddress]
-        public string Email { get; set; } = string.Empty;
+        [Required, MaxLength(50)]
+        public string DisplayName { get; set; } = string.Empty;
 
         public ProjectRole Role { get; set; } = ProjectRole.Viewer;
     }

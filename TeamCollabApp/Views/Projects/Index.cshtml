@@ -1,47 +1,77 @@
-@model List<TeamCollabApp.Models.Project>
+@model List<TeamCollabApp.ViewModels.ProjectSummaryViewModel>
 @{ ViewData["Title"] = "Projects"; }
 
 <div class="page-header">
-    <h1>Your Projects</h1>
-    <a class="btn btn-primary" asp-action="Create">+ New Project</a>
+    <div>
+        <h1>My Projects</h1>
+        <p class="muted" style="margin-top:4px; font-size:14px;">
+            @Model.Count project@(Model.Count == 1 ? "" : "s")
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <a class="btn btn-primary" asp-action="Create">+ New Project</a>
+    </div>
 </div>
 
 @if (!Model.Any())
 {
-    <div class="card" style="text-align:center; padding: 48px 24px;">
-        <p class="muted">No projects yet.</p>
-        <a class="btn btn-primary" asp-action="Create" style="margin-top:16px;">Create your first project</a>
+    <div class="card">
+        <div class="empty-state">
+            <div class="empty-state-icon">📂</div>
+            <h2>No projects yet</h2>
+            <p class="muted">Create your first project to get started.</p>
+            <a class="btn btn-primary" asp-action="Create">Create a project</a>
+        </div>
     </div>
 }
 else
 {
-    @foreach (var project in Model)
-    {
-        <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div>
-                    <a href="/Projects/Details/@project.Id" style="font-size:17px; font-weight:600; color:var(--text);">
-                        @project.Name
-                    </a>
-                    @if (!string.IsNullOrWhiteSpace(project.Description))
-                    {
-                        <p class="muted" style="margin-top:4px;">@project.Description</p>
-                    }
-                    <p class="muted" style="margin-top:8px; font-size:13px;">
-                        Created @project.CreatedAt.ToString("MMM d, yyyy")
-                        &nbsp;·&nbsp;
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px;">
+        @foreach (var project in Model)
+        {
+            <div class="card" style="margin:0; display:flex; flex-direction:column; gap:12px;">
+                <div style="flex:1;">
+                    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                        <a asp-action="Details" asp-route-id="@project.Id"
+                           style="font-size:16px; font-weight:600; color:var(--text); line-height:1.3;">
+                            @project.Name
+                        </a>
                         @if (project.IsPublicLink)
                         {
-                            <span style="color: var(--success);">Public link on</span>
+                            <span class="badge badge-public" style="flex-shrink:0;">Public</span>
                         }
                         else
                         {
-                            <span>Invite only</span>
+                            <span class="badge badge-private" style="flex-shrink:0;">Private</span>
                         }
-                    </p>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(project.Description))
+                    {
+                        <p class="muted" style="font-size:13px; line-height:1.55; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
+                            @project.Description
+                        </p>
+                    }
                 </div>
-                <a class="btn btn-ghost" asp-action="Details" asp-route-id="@project.Id">Open →</a>
+
+                <div style="font-size:13px; color:var(--muted); display:flex; flex-direction:column; gap:3px;">
+                    <span>Owned by <strong style="color:var(--text);">@project.OwnerDisplayName</strong></span>
+                    <span>
+                        @if (project.OtherMemberCount == 0)
+                        {
+                            <span>Not shared with anyone else</span>
+                        }
+                        else
+                        {
+                            <span>Shared with <strong style="color:var(--text);">@project.OtherMemberCount</strong> other @(project.OtherMemberCount == 1 ? "user" : "users")</span>
+                        }
+                    </span>
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; padding-top:12px; border-top:1px solid var(--border);">
+                    <span class="muted" style="font-size:12px;">@project.CreatedAt.ToString("MMM d, yyyy")</span>
+                    <a class="btn btn-ghost btn-sm" asp-action="Details" asp-route-id="@project.Id">Open →</a>
+                </div>
             </div>
-        </div>
-    }
+        }
+    </div>
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using TeamCollabApp.Models;
 using TeamCollabApp.Data;
 
@@ -10,7 +11,10 @@ public interface IGuestSessionService
     Task<GuestSession?> ResolveAsync(string sessionToken);
 }
 
-public class GuestSessionService(AppDbContext db) : IGuestSessionService
+public class GuestSessionService(
+    AppDbContext db,
+    IOptions<GuestSessionOptions> options,
+    ILogger<GuestSessionService> logger) : IGuestSessionService
 {
     private const string CookieName = "guest_session";
 
@@ -34,18 +38,20 @@ public class GuestSessionService(AppDbContext db) : IGuestSessionService
                 return existing;
         }
 
-        // create a new guest session
+        var expirationHours = options.Value.ExpirationHours;
         var newToken = Guid.NewGuid().ToString("N");
         var animal = AnimalNames[Random.Shared.Next(AnimalNames.Length)];
         var session = new GuestSession
         {
             SessionToken = newToken,
             DisplayName = $"Anonymous {animal}",
-            ExpiresAt = DateTime.UtcNow.AddDays(1)
+            ExpiresAt = DateTime.UtcNow.AddHours(expirationHours)
         };
 
         db.GuestSessions.Add(session);
         await db.SaveChangesAsync();
+
+        logger.LogInformation("Created guest session {SessionId} expiring in {Hours}h", session.Id, expirationHours);
 
         httpContext.Response.Cookies.Append(CookieName, newToken, new CookieOptions
         {

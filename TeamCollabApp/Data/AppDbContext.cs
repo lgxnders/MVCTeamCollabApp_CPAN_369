@@ -14,7 +14,16 @@ namespace TeamCollabApp.Data
         {
             base.OnModelCreating(builder);
 
-            // construct project
+            // Unique display name index, with empty strings excluded so unset names don't collide.
+            builder.Entity<ApplicationUser>(e =>
+            {
+                e.Property(u => u.DisplayName).HasMaxLength(50);
+                e.HasIndex(u => u.DisplayName)
+                    .IsUnique()
+                    .HasFilter("[DisplayName] != ''");
+            });
+
+            // Configure the Project entity.
             builder.Entity<Project>(e =>
             {
                 e.HasIndex(p => p.ShareToken).IsUnique();
@@ -27,7 +36,7 @@ namespace TeamCollabApp.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // construct guest session
+            // Configure the GuestSession entity.
             builder.Entity<GuestSession>(e =>
             {
                 e.HasIndex(g => g.SessionToken).IsUnique();
@@ -35,7 +44,7 @@ namespace TeamCollabApp.Data
                 e.Property(g => g.DisplayName).HasMaxLength(100);
             });
 
-            // construct project membership
+            // Configure the ProjectMembership entity.
             builder.Entity<ProjectMembership>(e =>
             {
                 e.HasIndex(m => new { m.ProjectId, m.UserId })

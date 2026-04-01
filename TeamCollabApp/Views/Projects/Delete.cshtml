@@ -1,0 +1,39 @@
+@model TeamCollabApp.Models.Project
+@{ ViewData["Title"] = $"Delete - {Model.Name}"; }
+
+<div style="max-width:520px; margin:0 auto;">
+    <div class="page-header" style="margin-bottom:24px;">
+        <h1>Delete Project</h1>
+        <a class="btn btn-ghost" asp-action="Details" asp-route-id="@Model.Id">← Back</a>
+    </div>
+
+    <div class="card" style="border-color:rgba(248,113,113,0.2); background:var(--danger-dim);">
+        <div style="display:flex; gap:14px; align-items:flex-start; margin-bottom:20px;">
+            <div style="font-size:28px; flex-shrink:0; margin-top:2px;">⚠️</div>
+            <div>
+                <h2 style="color:var(--danger); margin-bottom:6px;">This action is permanent</h2>
+                <p class="muted" style="font-size:14px; line-height:1.65;">
+                    You are about to permanently delete <strong style="color:var(--text);">@Model.Name</strong>.
+                    All project members will lose access immediately. This cannot be undone.
+                </p>
+            </div>
+        </div>
+
+        <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:20px; font-size:14px;">
+            <div style="display:flex; flex-direction:column; gap:6px; color:var(--muted);">
+                <span>Project: <strong style="color:var(--text);">@Model.Name</strong></span>
+                <span>Created: <strong style="color:var(--text);">@Model.CreatedAt.ToString("MMMM d, yyyy")</strong></span>
+                @if (!string.IsNullOrWhiteSpace(Model.Description))
+                {
+                    <span>Description: <strong style="color:var(--text);">@Model.Description</strong></span>
+                }
+            </div>
+        </div>
+
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post" style="display:flex; gap:10px;">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-danger" type="submit">Yes, delete permanently</button>
+            <a class="btn btn-ghost" asp-action="Details" asp-route-id="@Model.Id">Cancel</a>
+        </form>
+    </div>
+</div>

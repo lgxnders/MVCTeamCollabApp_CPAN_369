@@ -1,34 +1,52 @@
+@model TeamCollabApp.ViewModels.CreateProjectViewModel
 @{ ViewData["Title"] = "New Project"; }
 
 <div class="page-header">
-    <h1>New Project</h1>
-    <a class="btn btn-ghost" asp-action="Index">← Back</a>
+    <div>
+        <h1>New Project</h1>
+        <p class="muted" style="margin-top:4px; font-size:14px;">Fill in the details below to create your project.</p>
+    </div>
+    <div class="page-header-actions">
+        <a class="btn btn-ghost" asp-action="Index">← Back</a>
+    </div>
 </div>
 
-<div class="card" style="max-width: 560px;">
-    <form asp-action="Create" method="post">
-        @Html.AntiForgeryToken()
+<div style="max-width:560px;">
+    <div class="card">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
 
-        <div class="form-group">
-            <label for="name">Project Name</label>
-            <input type="text" id="name" name="name" placeholder="e.g. Q3 Campaign" required />
-        </div>
+            <div class="form-group">
+                <label asp-for="Name">Project Name</label>
+                <input asp-for="Name" type="text" placeholder="e.g. Q3 Campaign" autocomplete="off" />
+                <span asp-validation-for="Name" class="field-validation-error"></span>
+            </div>
 
-        <div class="form-group">
-            <label for="description">Description <span class="muted">(optional)</span></label>
-            <textarea id="description" name="description" placeholder="What's this project about?"></textarea>
-        </div>
+            <div class="form-group">
+                <label asp-for="Description">
+                    Description
+                    <span class="muted" style="text-transform:none; letter-spacing:0; font-weight:400; margin-left:4px;">(optional)</span>
+                </label>
+                <textarea asp-for="Description" placeholder="What is this project about?"></textarea>
+                <span asp-validation-for="Description" class="field-validation-error"></span>
+            </div>
 
-        <div class="form-group">
-            <label class="checkbox-row">
-                <input type="checkbox" name="isPublicLink" value="true" />
-                Enable public share link
-            </label>
-            <p class="muted" style="margin-top: 6px; font-size: 13px;">
-                Anyone with the link can join as a Viewer, including guests.
-            </p>
-        </div>
+            <hr class="divider" style="margin:20px 0;">
 
-        <button class="btn btn-primary" type="submit">Create Project</button>
-    </form>
+            <div class="form-group">
+                <label class="checkbox-row" style="cursor:pointer;">
+                    <input asp-for="IsPublicLink" type="checkbox" />
+                    Enable public share link
+                </label>
+                <p class="muted" style="margin-top:8px; font-size:13px; padding-left:26px;">
+                    Anyone with the link can join as a Viewer - no account required for guests.
+                </p>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:24px;">
+                <button class="btn btn-primary" type="submit">Create Project</button>
+                <a class="btn btn-ghost" asp-action="Index">Cancel</a>
+            </div>
+        </form>
+    </div>
 </div>

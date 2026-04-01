@@ -1,43 +1,151 @@
 @model TeamCollabApp.ViewModels.ProjectDetailsViewModel
 @{
     ViewData["Title"] = Model.Name;
+    bool isOwner = Model.CurrentUserRole == TeamCollabApp.Models.ProjectRole.Owner;
+    bool canEdit = Model.CurrentUserRole >= TeamCollabApp.Models.ProjectRole.Editor;
+    var shareUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/Projects/Join/{Model.ShareToken}";
 }
+
 <div class="page-header">
-    <div>
-        <h1>@Model.Name</h1>
-        @if (!string.IsNullOrWhiteSpace(Model.Description))
-        {
-            <p class="muted" style="margin-top: 6px;">@Model.Description</p>
-        }
-    </div>
-    <a class="btn btn-ghost" asp-action="Index">← Projects</a>
-</div>
-<div class="card">
-    <h2>Share Link</h2>
-    @if (Model.IsPublicLink)
-    {
-        var shareUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/Projects/Join/{Model.ShareToken}";
-        <div class="share-link-box">
-            <span style="flex:1">@shareUrl</span>
-            <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('@shareUrl'); this.textContent='Copied!';"
-                    style="padding: 4px 10px; font-size: 12px;">
-                Copy
-            </button>
+    <div style="flex:1; min-width:0;">
+
+        @* Title and rename row. *@
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">
+            <div id="titleDisplay" style="display:flex; align-items:center; gap:8px;">
+                @if (canEdit)
+                {
+                    <button id="renameBtn" title="Rename project"
+                            style="background:none; border:none; cursor:pointer; color:var(--muted); padding:2px; border-radius:4px; display:flex; align-items:center; transition:color 0.15s;"
+                            onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                    </button>
+                }
+                <h1 id="projectTitle">@Model.Name</h1>
+            </div>
+
+            @if (canEdit)
+            {
+                <div id="titleEdit" style="display:none; align-items:center; gap:8px;">
+                    <input id="renameInput" type="text" value="@Model.Name"
+                           style="font-size:22px; font-weight:700; letter-spacing:-0.5px; padding:4px 10px; width:320px; max-width:60vw;" />
+                    <button id="saveRename" class="btn btn-primary btn-sm" title="Save">✓</button>
+                    <button id="cancelRename" class="btn btn-ghost btn-sm" title="Cancel">✗</button>
+                </div>
+                <form id="renameForm" asp-action="Rename" asp-route-id="@Model.Id" method="post" style="display:none;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="renameFormName" name="name" />
+                </form>
+            }
+
+            <span class="badge @(Model.IsPublicLink ? "badge-public" : "badge-private")">
+                @(Model.IsPublicLink ? "Public" : "Private")
+            </span>
         </div>
-        <p class="muted" style="margin-top: 8px; font-size: 13px;">
-            Anyone with this link can join as a Viewer.
-        </p>
-    }
-    else
-    {
-        <p class="muted">Public link is disabled for this project.</p>
-    }
+
+        @* Description display and edit row. *@
+        <div style="margin-bottom:12px;">
+            <div id="descDisplay" style="display:flex; align-items:flex-start; gap:7px;">
+                @if (canEdit)
+                {
+                    <button id="descBtn" title="Edit description"
+                            style="background:none; border:none; cursor:pointer; color:var(--muted); padding:2px; border-radius:4px; display:flex; align-items:center; margin-top:2px; flex-shrink:0; transition:color 0.15s;"
+                            onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                    </button>
+                }
+                <span id="descText"
+                      style="font-size:14px; @(string.IsNullOrWhiteSpace(Model.Description) ? "color:var(--muted); font-style:italic;" : "color:var(--muted);")">
+                    @(string.IsNullOrWhiteSpace(Model.Description) ? "No description." : Model.Description)
+                </span>
+            </div>
+
+            @if (canEdit)
+            {
+                <div id="descEdit" style="display:none; flex-direction:column; gap:8px;">
+                    <textarea id="descInput" rows="3"
+                              style="font-size:14px; line-height:1.6; resize:vertical;">@Model.Description</textarea>
+                    <div style="display:flex; gap:8px;">
+                        <button id="saveDesc" class="btn btn-primary btn-sm">Save</button>
+                        <button id="cancelDesc" class="btn btn-ghost btn-sm">Cancel</button>
+                    </div>
+                </div>
+                <form id="descForm" asp-action="UpdateDescription" asp-route-id="@Model.Id" method="post" style="display:none;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="descFormValue" name="description" />
+                </form>
+            }
+        </div>
+
+        @* Project metadata row showing owner, date, and current user role. *@
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:13px; color:var(--muted);">
+            <span>Owner: <strong style="color:var(--text);">@Model.OwnerDisplayName</strong></span>
+            <span>·</span>
+            <span>@Model.CreatedAt.ToString("MMM d, yyyy")</span>
+            <span>·</span>
+            <span>Your role: <span class="badge badge-@Model.CurrentUserRole.ToString().ToLower()">@Model.CurrentUserRole</span></span>
+        </div>
+
+        @* Share link management, visible to owners only. *@
+        @if (isOwner)
+        {
+            <div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                @if (Model.IsPublicLink)
+                {
+                    <form asp-action="TogglePublicLink" asp-route-id="@Model.Id" method="post" style="display:inline; flex-shrink:0;">
+                        @Html.AntiForgeryToken()
+                        <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--danger);">Disable</button>
+                    </form>
+                    <div style="flex:1; min-width:0; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:5px 12px; overflow:hidden;">
+                        <span style="font-size:12px; font-family:'Courier New',monospace; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">@shareUrl</span>
+                    </div>
+                    <button id="copyShareBtn"
+                            onclick="var t=this;navigator.clipboard.writeText('@shareUrl').then(()=>{t.textContent='Copied!';setTimeout(()=>t.textContent='Copy',2000)});"
+                            class="btn btn-ghost btn-sm" style="flex-shrink:0;">Copy</button>
+                    <form asp-action="RegenerateShareToken" asp-route-id="@Model.Id" method="post" style="display:inline; flex-shrink:0;">
+                        @Html.AntiForgeryToken()
+                        <button class="btn btn-ghost btn-sm" type="submit"
+                                onclick="return confirm('Regenerate? The old link will stop working immediately.')">
+                            ↻ Regenerate
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <form asp-action="TogglePublicLink" asp-route-id="@Model.Id" method="post" style="display:inline;">
+                        @Html.AntiForgeryToken()
+                        <button class="btn btn-ghost btn-sm" type="submit">Enable</button>
+                    </form>
+                    <span style="font-size:12px; color:var(--muted); display:flex; align-items:center; gap:4px;">
+                        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
+                        Public link off
+                    </span>
+                }
+            </div>
+        }
+
+    </div>
+    <div class="page-header-actions">
+        <a class="btn btn-ghost" asp-action="Index">← Projects</a>
+    </div>
 </div>
+
+@* Members table and invite form. *@
 <div class="card">
-    <h2>Members</h2>
+    <div class="card-header">
+        <h2>Members <span class="muted" style="font-weight:400; font-size:15px;">(@Model.Members.Count)</span></h2>
+    </div>
+
     @if (!Model.Members.Any())
     {
-        <p class="muted">No members yet.</p>
+        <div class="empty-state" style="padding:32px 0;">
+            <p class="muted">No members yet.</p>
+        </div>
     }
     else
     {
@@ -51,15 +159,11 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var m in Model.Members)
+                @foreach (var m in Model.Members.OrderByDescending(x => x.Role))
                 {
                     <tr>
-                        <td>@m.DisplayName</td>
-                        <td>
-                            <span class="badge badge-@m.Role.ToString().ToLower()">
-                                @m.Role
-                            </span>
-                        </td>
+                        <td style="font-weight:500;">@m.DisplayName</td>
+                        <td><span class="badge badge-@m.Role.ToString().ToLower()">@m.Role</span></td>
                         <td>
                             @if (m.IsGuest)
                             {
@@ -67,19 +171,125 @@
                             }
                             else
                             {
-                                <span class="muted">Registered</span>
+                                <span class="muted" style="font-size:13px;">Registered</span>
                             }
                         </td>
-                        <td class="muted">@m.JoinedAt.ToString("MMM d, yyyy")</td>
+                        <td class="muted" style="font-size:13px;">@m.JoinedAt.ToString("MMM d, yyyy")</td>
                     </tr>
                 }
             </tbody>
         </table>
     }
+
+    @if (isOwner)
+    {
+        <hr class="divider" style="margin:20px 0 16px;">
+        <h3 style="margin-bottom:12px; font-size:14px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Add Member</h3>
+        <form asp-action="InviteMember" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="ProjectId" value="@Model.Id" />
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
+                <div style="flex:1; min-width:160px;">
+                    <input type="text" name="DisplayName" placeholder="Display name" autocomplete="off" style="width:100%;" required />
+                </div>
+                <div style="min-width:130px;">
+                    <select name="Role">
+                        <option value="0">Viewer</option>
+                        <option value="1">Commenter</option>
+                        <option value="2">Editor</option>
+                        <option value="3">Owner</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary btn-sm" type="submit" style="height:40px; padding:0 16px;">Add Member</button>
+            </div>
+        </form>
+    }
 </div>
-<div class="card">
-    <p class="muted" style="font-size: 13px;">
-        Created by <strong style="color: var(--text)">@Model.OwnerDisplayName</strong>
-        on @Model.CreatedAt.ToString("MMM d, yyyy")
-    </p>
-</div>
+
+@* Inline editing scripts for title and description. *@
+@if (canEdit)
+{
+    <script>
+    (function () {
+        // Title rename - elements and event handlers.
+        const renameBtn    = document.getElementById('renameBtn');
+        const titleDisplay = document.getElementById('titleDisplay');
+        const titleEdit    = document.getElementById('titleEdit');
+        const projectTitle = document.getElementById('projectTitle');
+        const renameInput  = document.getElementById('renameInput');
+        const saveRename   = document.getElementById('saveRename');
+        const cancelRename = document.getElementById('cancelRename');
+        const renameForm   = document.getElementById('renameForm');
+        const renameFormName = document.getElementById('renameFormName');
+
+        function enterTitleEdit() {
+            titleDisplay.style.display = 'none';
+            titleEdit.style.display    = 'flex';
+            renameInput.focus();
+            renameInput.select();
+        }
+        function exitTitleEdit() {
+            renameInput.value          = projectTitle.textContent.trim();
+            titleEdit.style.display    = 'none';
+            titleDisplay.style.display = 'flex';
+        }
+        function submitRename() {
+            const val = renameInput.value.trim();
+            if (!val) return;
+            renameFormName.value = val;
+            renameForm.submit();
+        }
+        renameBtn.addEventListener('click', enterTitleEdit);
+        cancelRename.addEventListener('click', exitTitleEdit);
+        saveRename.addEventListener('click', submitRename);
+        renameInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter')  { e.preventDefault(); submitRename(); }
+            if (e.key === 'Escape') { exitTitleEdit(); }
+        });
+
+        // Description edit - elements and event handlers.
+        const descBtn    = document.getElementById('descBtn');
+        const descDisplay = document.getElementById('descDisplay');
+        const descEdit   = document.getElementById('descEdit');
+        const descInput  = document.getElementById('descInput');
+        const saveDesc   = document.getElementById('saveDesc');
+        const cancelDesc = document.getElementById('cancelDesc');
+        const descForm   = document.getElementById('descForm');
+        const descFormValue = document.getElementById('descFormValue');
+        const descText   = document.getElementById('descText');
+
+        function enterDescEdit() {
+            descDisplay.style.display = 'none';
+            descEdit.style.display    = 'flex';
+            descInput.focus();
+        }
+        function exitDescEdit() {
+            descEdit.style.display    = 'none';
+            descDisplay.style.display = 'flex';
+        }
+        function submitDesc() {
+            descFormValue.value = descInput.value;
+            descForm.submit();
+        }
+        descBtn.addEventListener('click', enterDescEdit);
+        cancelDesc.addEventListener('click', exitDescEdit);
+        saveDesc.addEventListener('click', submitDesc);
+        descInput.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { exitDescEdit(); }
+        });
+    })();
+    </script>
+}
+
+@* Danger zone for project deletion, visible to owners only. *@
+@if (isOwner)
+{
+    <hr class="divider">
+    <div class="danger-zone">
+        <div>
+            <h3 style="color:var(--danger); margin-bottom:4px;">Delete Project</h3>
+            <p class="muted" style="font-size:13px;">Permanently remove this project and all its members. This cannot be undone.</p>
+        </div>
+        <a class="btn btn-danger" asp-action="Delete" asp-route-id="@Model.Id">Delete Project</a>
+    </div>
+}

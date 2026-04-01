@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity;
-// https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity?view=aspnetcore-9.0&tabs=visual-studio
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Identity;
 
 namespace TeamCollabApp.Models
 {
     public class ApplicationUser : IdentityUser
     {
+        [MaxLength(50)]
         public string DisplayName { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

@@ -1,8 +1,95 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "Home";
+    ViewData["MainClass"] = "hero-page";
+    bool isAuthed = User.Identity?.IsAuthenticated == true;
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div style="text-align:center; padding: 88px 32px 72px; background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(108,99,255,0.15), transparent);">
+    <h1 style="font-size:clamp(36px,6vw,60px); letter-spacing:-2px; line-height:1.08; margin-bottom:22px;">
+        Projects made simple.<br>
+        <span style="color:var(--accent);">Collaboration made easy.</span>
+    </h1>
+
+    <p style="font-size:17px; color:var(--muted); max-width:500px; margin:0 auto 40px; line-height:1.75;">
+        Create projects, invite your team with role-based access, and share with anyone via a public link - even guests without an account.
+    </p>
+
+    @if (isAuthed)
+    {
+        <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+            <a class="btn btn-primary btn-lg" asp-controller="Projects" asp-action="Index">Open My Projects</a>
+            <a class="btn btn-ghost btn-lg" asp-controller="Projects" asp-action="Create">+ New Project</a>
+        </div>
+    }
+    else
+    {
+        <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+            <a class="btn btn-primary btn-lg" asp-area="Identity" asp-page="/Account/Register">Get started free</a>
+            <a class="btn btn-ghost btn-lg" asp-area="Identity" asp-page="/Account/Login">Sign in</a>
+        </div>
+    }
+</div>
+
+<div style="max-width:960px; margin:0 auto; padding:0 24px 80px;">
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-bottom:64px;">
+        <div class="card" style="margin:0;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(108,99,255,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px;">📁</div>
+            <h3 style="margin-bottom:8px;">Organize Projects</h3>
+            <p class="muted" style="font-size:14px;line-height:1.65;">Create projects with names and descriptions. Keep your work structured and accessible to the right people.</p>
+        </div>
+        <div class="card" style="margin:0;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(74,222,128,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px;">🔗</div>
+            <h3 style="margin-bottom:8px;">Share with Anyone</h3>
+            <p class="muted" style="font-size:14px;line-height:1.65;">Generate a public link that lets anyone join as a Viewer - no account needed for guests who just want to observe.</p>
+        </div>
+        <div class="card" style="margin:0;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(126,207,255,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px;">🛡️</div>
+            <h3 style="margin-bottom:8px;">Role-Based Access</h3>
+            <p class="muted" style="font-size:14px;line-height:1.65;">Assign Viewer, Commenter, Editor, or Owner roles. Control exactly who can see and do what on every project.</p>
+        </div>
+    </div>
+
+    <hr class="divider">
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px; align-items:center; padding:48px 0;">
+        <div>
+            <h2 style="font-size:22px; letter-spacing:-0.5px; margin-bottom:14px;">Everything you need to collaborate</h2>
+            <ul style="list-style:none; display:flex; flex-direction:column; gap:12px;">
+                @foreach (var item in new[] {
+                    ("✓", "Create and manage multiple projects"),
+                    ("✓", "Invite team members by email"),
+                    ("✓", "Public share links for guest viewers"),
+                    ("✓", "Regenerate share tokens anytime"),
+                    ("✓", "See all members and their roles at a glance"),
+                })
+                {
+                    <li style="display:flex;gap:12px;font-size:14px;color:var(--muted);">
+                        <span style="color:var(--accent);font-weight:700;flex-shrink:0;">@item.Item1</span>
+                        @item.Item2
+                    </li>
+                }
+            </ul>
+        </div>
+        <div class="card" style="margin:0; border-color: rgba(108,99,255,0.25); background: rgba(108,99,255,0.04);">
+            @if (isAuthed)
+            {
+                <p class="muted" style="font-size:13px; margin-bottom:16px;">You're signed in. Ready to get to work?</p>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <a class="btn btn-primary" asp-controller="Projects" asp-action="Index">→ My Projects</a>
+                    <a class="btn btn-ghost" asp-controller="Projects" asp-action="Create">+ Create a new project</a>
+                </div>
+            }
+            else
+            {
+                <p style="font-size:17px; font-weight:600; margin-bottom:6px;">Ready to get started?</p>
+                <p class="muted" style="font-size:14px; margin-bottom:20px;">Create a free account and have your first project up in under a minute.</p>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Register">Create free account</a>
+                    <a class="btn btn-ghost" asp-area="Identity" asp-page="/Account/Login">Sign in to existing account</a>
+                </div>
+            }
+        </div>
+    </div>
+
 </div>

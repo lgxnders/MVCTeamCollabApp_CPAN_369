@@ -71,6 +71,12 @@ namespace TeamCollabApp.Areas.Identity.Pages.Account
         /// </summary>
         public class InputModel
         {
+            [Required]
+            [StringLength(50, MinimumLength = 3, ErrorMessage = "Display name must be between 3 and 50 characters.")]
+            [RegularExpression(@"^[\w][\w\s.\-]*$", ErrorMessage = "Display name may only contain letters, numbers, spaces, underscores, hyphens, and periods.")]
+            [Display(Name = "Display Name")]
+            public string DisplayName { get; set; }
+
             /// <summary>
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
@@ -109,11 +115,12 @@ namespace TeamCollabApp.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
-            returnUrl ??= Url.Content("~/");
+            returnUrl ??= Url.Content("~/Projects");
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
             if (ModelState.IsValid)
             {
                 var user = CreateUser();
+                user.DisplayName = Input.DisplayName.Trim();
 
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
@@ -147,11 +154,18 @@ namespace TeamCollabApp.Areas.Identity.Pages.Account
                 }
                 foreach (var error in result.Errors)
                 {
-                    ModelState.AddModelError(string.Empty, error.Description);
+                    var message = error.Code switch
+                    {
+                        "DuplicateUserName" or
+                        "DuplicateEmail"    => "An account with that email address already exists.",
+                        "InvalidUserName"   => "Email address is not valid.",
+                        _                  => error.Description
+                    };
+                    ModelState.AddModelError(string.Empty, message);
                 }
             }
 
-            // If we got this far, something failed, redisplay form
+            // If we got this far, something failed - redisplay the form.
             return Page();
         }
 

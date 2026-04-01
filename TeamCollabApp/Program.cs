@@ -15,6 +15,7 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 })
 .AddEntityFrameworkStores<AppDbContext>();
 
+builder.Services.Configure<GuestSessionOptions>(builder.Configuration.GetSection("GuestSession"));
 builder.Services.AddScoped<IGuestSessionService, GuestSessionService>();
 
 builder.Services.AddControllersWithViews();

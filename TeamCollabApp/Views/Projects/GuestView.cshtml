@@ -1,0 +1,26 @@
+@model TeamCollabApp.Models.Project
+@{ ViewData["Title"] = Model.Name; Layout = "_Layout"; }
+
+<div style="text-align: center; padding: 48px 24px;">
+    <p class="muted" style="font-size: 13px; margin-bottom: 8px;">You're viewing as a guest</p>
+    <h1>@Model.Name</h1>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <p class="muted" style="margin-top: 12px; max-width: 480px; margin-inline: auto;">
+            @Model.Description
+        </p>
+    }
+
+    <hr class="divider" style="max-width: 480px; margin: 32px auto;" />
+
+    <p class="muted" style="margin-bottom: 20px; font-size: 14px;">
+        You've joined as a <strong style="color: var(--text)">Viewer</strong>.
+        Register for a full account to do more.
+    </p>
+
+    <div style="display: flex; gap: 12px; justify-content: center;">
+        <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Register">Create account</a>
+        <a class="btn btn-ghost" asp-area="Identity" asp-page="/Account/Login">Sign in</a>
+    </div>
+</div>

@@ -1,0 +1,34 @@
+@{ ViewData["Title"] = "New Project"; }
+
+<div class="page-header">
+    <h1>New Project</h1>
+    <a class="btn btn-ghost" asp-action="Index">← Back</a>
+</div>
+
+<div class="card" style="max-width: 560px;">
+    <form asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="form-group">
+            <label for="name">Project Name</label>
+            <input type="text" id="name" name="name" placeholder="e.g. Q3 Campaign" required />
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description <span class="muted">(optional)</span></label>
+            <textarea id="description" name="description" placeholder="What's this project about?"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-row">
+                <input type="checkbox" name="isPublicLink" value="true" />
+                Enable public share link
+            </label>
+            <p class="muted" style="margin-top: 6px; font-size: 13px;">
+                Anyone with the link can join as a Viewer, including guests.
+            </p>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Create Project</button>
+    </form>
+</div>

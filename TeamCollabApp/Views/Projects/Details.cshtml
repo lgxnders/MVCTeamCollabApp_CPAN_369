@@ -1,0 +1,85 @@
+@model TeamCollabApp.ViewModels.ProjectDetailsViewModel
+@{
+    ViewData["Title"] = Model.Name;
+}
+<div class="page-header">
+    <div>
+        <h1>@Model.Name</h1>
+        @if (!string.IsNullOrWhiteSpace(Model.Description))
+        {
+            <p class="muted" style="margin-top: 6px;">@Model.Description</p>
+        }
+    </div>
+    <a class="btn btn-ghost" asp-action="Index">← Projects</a>
+</div>
+<div class="card">
+    <h2>Share Link</h2>
+    @if (Model.IsPublicLink)
+    {
+        var shareUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/Projects/Join/{Model.ShareToken}";
+        <div class="share-link-box">
+            <span style="flex:1">@shareUrl</span>
+            <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('@shareUrl'); this.textContent='Copied!';"
+                    style="padding: 4px 10px; font-size: 12px;">
+                Copy
+            </button>
+        </div>
+        <p class="muted" style="margin-top: 8px; font-size: 13px;">
+            Anyone with this link can join as a Viewer.
+        </p>
+    }
+    else
+    {
+        <p class="muted">Public link is disabled for this project.</p>
+    }
+</div>
+<div class="card">
+    <h2>Members</h2>
+    @if (!Model.Members.Any())
+    {
+        <p class="muted">No members yet.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Type</th>
+                    <th>Joined</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in Model.Members)
+                {
+                    <tr>
+                        <td>@m.DisplayName</td>
+                        <td>
+                            <span class="badge badge-@m.Role.ToString().ToLower()">
+                                @m.Role
+                            </span>
+                        </td>
+                        <td>
+                            @if (m.IsGuest)
+                            {
+                                <span class="badge badge-guest">Guest</span>
+                            }
+                            else
+                            {
+                                <span class="muted">Registered</span>
+                            }
+                        </td>
+                        <td class="muted">@m.JoinedAt.ToString("MMM d, yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+<div class="card">
+    <p class="muted" style="font-size: 13px;">
+        Created by <strong style="color: var(--text)">@Model.OwnerDisplayName</strong>
+        on @Model.CreatedAt.ToString("MMM d, yyyy")
+    </p>
+</div>

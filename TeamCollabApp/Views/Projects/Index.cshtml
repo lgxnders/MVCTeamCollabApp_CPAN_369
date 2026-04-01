@@ -1,0 +1,47 @@
+@model List<TeamCollabApp.Models.Project>
+@{ ViewData["Title"] = "Projects"; }
+
+<div class="page-header">
+    <h1>Your Projects</h1>
+    <a class="btn btn-primary" asp-action="Create">+ New Project</a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="card" style="text-align:center; padding: 48px 24px;">
+        <p class="muted">No projects yet.</p>
+        <a class="btn btn-primary" asp-action="Create" style="margin-top:16px;">Create your first project</a>
+    </div>
+}
+else
+{
+    @foreach (var project in Model)
+    {
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                    <a href="/Projects/Details/@project.Id" style="font-size:17px; font-weight:600; color:var(--text);">
+                        @project.Name
+                    </a>
+                    @if (!string.IsNullOrWhiteSpace(project.Description))
+                    {
+                        <p class="muted" style="margin-top:4px;">@project.Description</p>
+                    }
+                    <p class="muted" style="margin-top:8px; font-size:13px;">
+                        Created @project.CreatedAt.ToString("MMM d, yyyy")
+                        &nbsp;·&nbsp;
+                        @if (project.IsPublicLink)
+                        {
+                            <span style="color: var(--success);">Public link on</span>
+                        }
+                        else
+                        {
+                            <span>Invite only</span>
+                        }
+                    </p>
+                </div>
+                <a class="btn btn-ghost" asp-action="Details" asp-route-id="@project.Id">Open →</a>
+            </div>
+        </div>
+    }
+}

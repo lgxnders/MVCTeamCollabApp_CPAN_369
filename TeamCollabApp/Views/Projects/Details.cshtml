@@ -163,7 +163,34 @@
                 {
                     <tr>
                         <td style="font-weight:500;">@m.DisplayName</td>
-                        <td><span class="badge badge-@m.Role.ToString().ToLower()">@m.Role</span></td>
+                        <td>
+                            @if (isOwner)
+                            {
+                                <form asp-action="UpdateRole" method="post" style="display:inline-flex; gap:6px; align-items:center;">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="membershipId" value="@m.MembershipId" />
+                                    <select name="newRole" style="width:auto; padding:4px 28px 4px 8px; font-size:13px;">
+                                        @foreach (var opt in new[] {
+                                            (v: 0, l: "Viewer",    r: TeamCollabApp.Models.ProjectRole.Viewer),
+                                            (v: 1, l: "Commenter", r: TeamCollabApp.Models.ProjectRole.Commenter),
+                                            (v: 2, l: "Editor",    r: TeamCollabApp.Models.ProjectRole.Editor),
+                                            (v: 3, l: "Owner",     r: TeamCollabApp.Models.ProjectRole.Owner),
+                                        })
+                                        {
+                                            if (m.Role == opt.r)
+                                            { <option value="@opt.v" selected>@opt.l</option> }
+                                            else
+                                            { <option value="@opt.v">@opt.l</option> }
+                                        }
+                                    </select>
+                                    <button class="btn btn-ghost btn-sm" type="submit">Save</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="badge badge-@m.Role.ToString().ToLower()">@m.Role</span>
+                            }
+                        </td>
                         <td>
                             @if (m.IsGuest)
                             {

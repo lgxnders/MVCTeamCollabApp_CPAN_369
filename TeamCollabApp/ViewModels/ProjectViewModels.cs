@@ -53,6 +53,7 @@ namespace TeamCollabApp.ViewModels
 
     public class MemberViewModel
     {
+        public int MembershipId { get; set; }
         public string DisplayName { get; set; } = string.Empty;
         public ProjectRole Role { get; set; }
         public bool IsGuest { get; set; }

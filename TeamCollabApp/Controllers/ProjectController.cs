@@ -79,6 +79,7 @@ namespace YourApp.Controllers
                 CurrentUserRole = role.Value,
                 Members = project.Memberships.Select(m => new MemberViewModel
                 {
+                    MembershipId = m.Id,
                     DisplayName = m.DisplayName,
                     Role = m.Role,
                     IsGuest = m.GuestSessionId.HasValue,
@@ -232,10 +233,10 @@ namespace YourApp.Controllers
         }
 
         [AllowAnonymous]
-        public async Task<IActionResult> Join(string token)
+        public async Task<IActionResult> Join(string id)
         {
             var project = await db.Projects
-                .FirstOrDefaultAsync(p => p.ShareToken == token);
+                .FirstOrDefaultAsync(p => p.ShareToken == id);
 
             if (project is null || !project.IsPublicLink)
                 return NotFound();

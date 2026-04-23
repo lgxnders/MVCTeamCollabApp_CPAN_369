@@ -12,4 +12,4 @@ Leveraging SignalR for real-time communication, multiple, concurrent users are a
 3. dotnet restore
 4. In Visual Studio, right-click on the solution and select 'Configure Startup Projects'.
 5. Click 'Multiple startup projects', then ensure that the TeamCollabApp, and its SearchApi and TasksApi are selected to start.
-6. Go to to the URLHERE PTUT HETOEUTHO UHODFHU OASDHAUOHWDO and try logging in with a test account, such as 'austin@gmail.com', with the password, 'Peanut!123!'
+6. Go to to the url that opens in your browser, and try logging in with a test account, such as 'austin@gmail.com', with the password, 'Peanut!123!'

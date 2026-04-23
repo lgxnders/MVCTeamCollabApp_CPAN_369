@@ -18,6 +18,7 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<TasksDbContext>();
+    await db.Database.MigrateAsync();
     await new TasksSeeder(db).SeedAsync();
 }
 

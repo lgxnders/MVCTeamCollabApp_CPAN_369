@@ -23,13 +23,18 @@ namespace TeamCollabApp.TasksApi.Data
             var allAssignees = new List<TaskAssignee>();
             var allChecklistItems = new List<TaskChecklistItem>();
 
-            // User IDs from the MVC seeder — ordered by email so indices are stable.
-            var userIds = await db.Database
-                .SqlQueryRaw<string>("SELECT CAST(Id AS NVARCHAR(450)) FROM AspNetUsers ORDER BY Email")
+            // Fetch user IDs keyed by email prefix for explicit, order-independent lookup.
+            var userIdsByEmail = await db.Database
+                .SqlQueryRaw<UserEmailId>("SELECT CAST(Id AS NVARCHAR(450)) AS Id, Email FROM AspNetUsers")
                 .ToListAsync();
 
-            // Helper to safely pick a user ID by index
-            string User(int index) => userIds.Count > index ? userIds[index] : userIds[0];
+            var userMap = userIdsByEmail.ToDictionary(
+                u => u.Email.Split('@')[0].ToLower(),
+                u => u.Id
+            );
+
+            // Helper to look up a user ID by first-name/email prefix.
+            string User(string name) => userMap.TryGetValue(name.ToLower(), out var id) ? id : userMap.Values.First();
 
             var taskData = new (string ProjectName, (string Todo, string InProgress, string Done) Columns, (string Title, string? Desc, int Col, string[] Assignees, string[] Checklist)[] Tasks)[]
             {
@@ -37,80 +42,80 @@ namespace TeamCollabApp.TasksApi.Data
                     "Website Redesign",
                     ("To Do", "In Progress", "Done"),
                     [
-                        ("Define colour palette",        "Pick brand colours and create a Figma swatch.",              0, [User(0), User(1)], ["Gather existing brand assets", "Review competitor palettes"]),
-                        ("Write homepage copy",          "Draft headline, subheadline and CTA text.",                  0, [User(2)],          ["Interview stakeholders", "Three draft variants"]),
-                        ("Set up CI pipeline",           "GitHub Actions workflow for build and deploy.",              1, [User(1)],          ["Create workflow file", "Configure secrets", "Test on PR"]),
-                        ("Responsive nav prototype",     "Mobile-first navigation component in Figma.",                1, [User(0), User(2)], ["Wireframe", "Desktop breakpoint", "Accessibility pass"]),
-                        ("Launch landing page",          "Push the redesigned homepage to production.",                2, [User(0)],          ["Final QA", "Stakeholder sign-off", "Deploy"]),
-                        ("SEO meta tags audit",          "Ensure all pages have correct titles and descriptions.",     2, [User(1)],          []),
-                        ("Accessibility review",         "WCAG 2.1 AA compliance check across all pages.",            0, [User(2)],          ["Screen reader test", "Colour contrast check"]),
-                        ("Performance optimisation",     "Achieve Lighthouse score above 90 on all pages.",           1, [User(0)],          ["Image compression", "Lazy loading", "Bundle analysis"]),
-                        ("Analytics integration",        "Wire up GA4 events for all CTAs.",                          0, [User(1), User(2)], ["Define event taxonomy", "Implement tags", "Verify in dashboard"]),
-                        ("Redirect old URLs",            "301 redirects from legacy paths to new structure.",          2, [User(0)],          ["Audit existing URLs", "Write redirect map"]),
+                        ("Define colour palette",        "Pick brand colours and create a Figma swatch.",              0, [User("alex"), User("john")],  ["Gather existing brand assets", "Review competitor palettes"]),
+                        ("Write homepage copy",          "Draft headline, subheadline and CTA text.",                  0, [User("jane")],                ["Interview stakeholders", "Three draft variants"]),
+                        ("Set up CI pipeline",           "GitHub Actions workflow for build and deploy.",              1, [User("john")],                ["Create workflow file", "Configure secrets", "Test on PR"]),
+                        ("Responsive nav prototype",     "Mobile-first navigation component in Figma.",                1, [User("alex"), User("jane")],  ["Wireframe", "Desktop breakpoint", "Accessibility pass"]),
+                        ("Launch landing page",          "Push the redesigned homepage to production.",                2, [User("alex")],                ["Final QA", "Stakeholder sign-off", "Deploy"]),
+                        ("SEO meta tags audit",          "Ensure all pages have correct titles and descriptions.",     2, [User("john")],                []),
+                        ("Accessibility review",         "WCAG 2.1 AA compliance check across all pages.",            0, [User("jane")],                ["Screen reader test", "Colour contrast check"]),
+                        ("Performance optimisation",     "Achieve Lighthouse score above 90 on all pages.",           1, [User("alex")],                ["Image compression", "Lazy loading", "Bundle analysis"]),
+                        ("Analytics integration",        "Wire up GA4 events for all CTAs.",                          0, [User("john"), User("jane")],  ["Define event taxonomy", "Implement tags", "Verify in dashboard"]),
+                        ("Redirect old URLs",            "301 redirects from legacy paths to new structure.",          2, [User("alex")],                ["Audit existing URLs", "Write redirect map"]),
                     ]
                 ),
                 (
                     "Mobile App v2",
                     ("Backlog", "In Progress", "Released"),
                     [
-                        ("Onboarding flow redesign",     "New three-step onboarding with progress indicator.",         0, [User(0), User(4)], ["UX research", "Figma prototype", "Dev handoff"]),
-                        ("Push notification service",    "Firebase Cloud Messaging integration.",                      1, [User(4)],          ["Configure FCM", "Handle foreground and background", "Deep link routing"]),
-                        ("Offline mode for tasks",       "Cache task list locally for offline access.",                0, [User(0)],          ["Choose storage strategy", "Sync on reconnect"]),
-                        ("Dark mode support",            "System-aware dark mode across all screens.",                 1, [User(4), User(0)], ["Design tokens", "Platform-specific overrides"]),
-                        ("App Store submission",         "Prepare build for iOS App Store review.",                    2, [User(0)],          ["Screenshots", "Privacy policy", "Submit"]),
-                        ("Crash reporting setup",        "Integrate Sentry for crash and error tracking.",             1, [User(4)],          ["Install SDK", "Configure DSN", "Test error capture"]),
-                        ("Biometric authentication",     "Face ID and fingerprint login on supported devices.",        0, [User(0)],          ["Research OS APIs", "Implement", "QA on devices"]),
-                        ("Rate my app prompt",           "In-app review request after positive signal.",               0, [User(4)],          ["Define trigger logic", "Implement native prompt"]),
-                        ("Localisation framework",       "i18n setup with English and French as first targets.",       1, [User(0), User(4)], ["Extract strings", "French translation", "RTL prep"]),
-                        ("Beta TestFlight release",      "Distribute beta build to 50 internal testers.",              2, [User(4)],          ["Recruit testers", "Collect feedback"]),
+                        ("Onboarding flow redesign",     "New three-step onboarding with progress indicator.",         0, [User("alex"), User("joe")],   ["UX research", "Figma prototype", "Dev handoff"]),
+                        ("Push notification service",    "Firebase Cloud Messaging integration.",                      1, [User("joe")],                 ["Configure FCM", "Handle foreground and background", "Deep link routing"]),
+                        ("Offline mode for tasks",       "Cache task list locally for offline access.",                0, [User("alex")],                ["Choose storage strategy", "Sync on reconnect"]),
+                        ("Dark mode support",            "System-aware dark mode across all screens.",                 1, [User("joe"), User("alex")],   ["Design tokens", "Platform-specific overrides"]),
+                        ("App Store submission",         "Prepare build for iOS App Store review.",                    2, [User("alex")],                ["Screenshots", "Privacy policy", "Submit"]),
+                        ("Crash reporting setup",        "Integrate Sentry for crash and error tracking.",             1, [User("joe")],                 ["Install SDK", "Configure DSN", "Test error capture"]),
+                        ("Biometric authentication",     "Face ID and fingerprint login on supported devices.",        0, [User("alex")],                ["Research OS APIs", "Implement", "QA on devices"]),
+                        ("Rate my app prompt",           "In-app review request after positive signal.",               0, [User("joe")],                 ["Define trigger logic", "Implement native prompt"]),
+                        ("Localisation framework",       "i18n setup with English and French as first targets.",       1, [User("alex"), User("joe")],   ["Extract strings", "French translation", "RTL prep"]),
+                        ("Beta TestFlight release",      "Distribute beta build to 50 internal testers.",              2, [User("joe")],                 ["Recruit testers", "Collect feedback"]),
                     ]
                 ),
                 (
                     "API Gateway Migration",
                     ("To Do", "In Progress", "Done"),
                     [
-                        ("Inventory all endpoints",      "Document every service and route behind the old gateway.",   0, [User(1), User(7)], ["Spreadsheet of routes", "Flag deprecated endpoints"]),
-                        ("Set up Kong gateway",          "Install and configure Kong on the staging cluster.",         1, [User(7)],          ["Helm install", "Admin API smoke test"]),
-                        ("Auth plugin configuration",    "JWT verification plugin on all authenticated routes.",       1, [User(1), User(8)], ["Configure plugin", "Token rotation test"]),
-                        ("Rate limiting rules",          "Apply per-consumer rate limits to prevent abuse.",           0, [User(7)],          ["Define limits per tier", "Configure plugin", "Load test"]),
-                        ("Traffic cutover plan",         "Staged rollout from old to new gateway with rollback plan.", 0, [User(1)],          ["Draft runbook", "Dry run on staging", "Schedule maintenance window"]),
-                        ("Logging and tracing",          "Centralise request logs and add distributed tracing.",       1, [User(8)],          ["OpenTelemetry setup", "Trace propagation headers"]),
-                        ("Legacy gateway decommission",  "Shut down old gateway after 30 days of stable operation.",  2, [User(1)],          ["Confirm zero traffic", "Terminate instances"]),
-                        ("Developer portal update",      "Update internal docs with new base URLs and auth flow.",     0, [User(7), User(8)], ["Swagger update", "Changelog entry"]),
-                        ("Load test new gateway",        "Simulate peak traffic and verify latency targets.",          2, [User(1)],          ["k6 script", "Run 10k RPS test", "Review results"]),
-                        ("Service mesh evaluation",      "Assess whether Istio is needed alongside the gateway.",      0, [User(8)],          ["Compare options", "Decision record"]),
+                        ("Inventory all endpoints",      "Document every service and route behind the old gateway.",   0, [User("john"), User("adam")],      ["Spreadsheet of routes", "Flag deprecated endpoints"]),
+                        ("Set up Kong gateway",          "Install and configure Kong on the staging cluster.",         1, [User("adam")],                    ["Helm install", "Admin API smoke test"]),
+                        ("Auth plugin configuration",    "JWT verification plugin on all authenticated routes.",       1, [User("john"), User("cassandra")],  ["Configure plugin", "Token rotation test"]),
+                        ("Rate limiting rules",          "Apply per-consumer rate limits to prevent abuse.",           0, [User("adam")],                    ["Define limits per tier", "Configure plugin", "Load test"]),
+                        ("Traffic cutover plan",         "Staged rollout from old to new gateway with rollback plan.", 0, [User("john")],                    ["Draft runbook", "Dry run on staging", "Schedule maintenance window"]),
+                        ("Logging and tracing",          "Centralise request logs and add distributed tracing.",       1, [User("cassandra")],               ["OpenTelemetry setup", "Trace propagation headers"]),
+                        ("Legacy gateway decommission",  "Shut down old gateway after 30 days of stable operation.",  2, [User("john")],                    ["Confirm zero traffic", "Terminate instances"]),
+                        ("Developer portal update",      "Update internal docs with new base URLs and auth flow.",     0, [User("adam"), User("cassandra")],  ["Swagger update", "Changelog entry"]),
+                        ("Load test new gateway",        "Simulate peak traffic and verify latency targets.",          2, [User("john")],                    ["k6 script", "Run 10k RPS test", "Review results"]),
+                        ("Service mesh evaluation",      "Assess whether Istio is needed alongside the gateway.",      0, [User("cassandra")],               ["Compare options", "Decision record"]),
                     ]
                 ),
                 (
                     "Design System",
                     ("To Do", "In Progress", "Done"),
                     [
-                        ("Token taxonomy decision",      "Agree on naming conventions for colour, spacing, type.",     2, [User(2), User(0)], ["Research conventions", "Workshop with team"]),
-                        ("Button component",             "Primary, secondary, ghost, danger variants with states.",    2, [User(2)],          ["Design", "Storybook story", "Accessibility"]),
-                        ("Form input component",         "Text, number, select, textarea with validation states.",     1, [User(0)],          ["Design all states", "Implement", "Document"]),
-                        ("Icon library",                 "Source and integrate a consistent icon set.",                1, [User(2), User(6)], ["Evaluate libraries", "Select 80 core icons", "Publish"]),
-                        ("Typography scale",             "Define heading and body type ramp for web and mobile.",      2, [User(2)],          ["Type specimen", "Token definitions"]),
-                        ("Colour palette",               "Full semantic palette including dark mode variants.",         1, [User(0), User(2)], ["Figma swatches", "CSS custom properties"]),
-                        ("Spacing system",               "4px base grid, named scale tokens.",                         0, [User(2)],          ["Define scale", "Document usage rules"]),
-                        ("Card component",               "Content card with header, body, footer, and media slot.",    0, [User(0)],          ["Design variants", "Implement", "Storybook"]),
-                        ("Modal and drawer",             "Accessible overlay components with focus trapping.",          0, [User(2), User(0)], ["Design", "Implement", "ARIA roles"]),
-                        ("Component documentation site", "Static site with live examples for every component.",        0, [User(6)],          ["Choose framework", "Write first five pages"]),
+                        ("Token taxonomy decision",      "Agree on naming conventions for colour, spacing, type.",     2, [User("jane"), User("alex")],  ["Research conventions", "Workshop with team"]),
+                        ("Button component",             "Primary, secondary, ghost, danger variants with states.",    2, [User("jane")],                ["Design", "Storybook story", "Accessibility"]),
+                        ("Form input component",         "Text, number, select, textarea with validation states.",     1, [User("alex")],                ["Design all states", "Implement", "Document"]),
+                        ("Icon library",                 "Source and integrate a consistent icon set.",                1, [User("jane"), User("sam")],   ["Evaluate libraries", "Select 80 core icons", "Publish"]),
+                        ("Typography scale",             "Define heading and body type ramp for web and mobile.",      2, [User("jane")],                ["Type specimen", "Token definitions"]),
+                        ("Colour palette",               "Full semantic palette including dark mode variants.",         1, [User("alex"), User("jane")],  ["Figma swatches", "CSS custom properties"]),
+                        ("Spacing system",               "4px base grid, named scale tokens.",                         0, [User("jane")],                ["Define scale", "Document usage rules"]),
+                        ("Card component",               "Content card with header, body, footer, and media slot.",    0, [User("alex")],                ["Design variants", "Implement", "Storybook"]),
+                        ("Modal and drawer",             "Accessible overlay components with focus trapping.",          0, [User("jane"), User("alex")],  ["Design", "Implement", "ARIA roles"]),
+                        ("Component documentation site", "Static site with live examples for every component.",        0, [User("sam")],                 ["Choose framework", "Write first five pages"]),
                     ]
                 ),
                 (
                     "Data Pipeline",
                     ("Backlog", "Building", "Shipped"),
                     [
-                        ("Source connector for CRM",     "Ingest contact and deal data from Salesforce nightly.",      2, [User(3), User(9)], ["Auth setup", "Field mapping", "Incremental sync"]),
-                        ("Raw to staging transform",      "dbt models to clean and standardise raw ingestion tables.",  1, [User(9)],          ["Write models", "Add tests", "Schedule"]),
-                        ("Staging to warehouse load",     "Load transformed data into BigQuery fact and dim tables.",   1, [User(3), User(9)], ["Schema design", "Partition strategy", "Load job"]),
-                        ("Data quality tests",           "Great Expectations suite for all critical tables.",          0, [User(3)],          ["Define expectations", "CI integration"]),
-                        ("Orchestration with Airflow",   "DAG for the full nightly pipeline with retries.",            1, [User(9)],          ["Write DAG", "Test backfill", "Set up alerts"]),
-                        ("Executive KPI dashboard",      "Looker dashboard fed by the warehouse aggregates.",          2, [User(3)],          ["Agree metrics", "Build explores", "Publish"]),
-                        ("Real-time event streaming",     "Kafka topic for user activity events from the app.",         0, [User(9), User(3)], ["Topic design", "Producer integration", "Consumer service"]),
-                        ("Data retention policy",        "Archive and purge rules for GDPR compliance.",               0, [User(3)],          ["Legal review", "Implement TTL rules"]),
-                        ("Pipeline monitoring",          "Alerts for failed runs, stale data, and row count anomalies.",2, [User(9)],          ["Define SLOs", "Implement monitors"]),
-                        ("Self-serve query layer",        "Expose curated datasets via a read-only Postgres replica.",  0, [User(3), User(9)], ["Provision replica", "IAM setup", "Docs"]),
+                        ("Source connector for CRM",     "Ingest contact and deal data from Salesforce nightly.",      2, [User("karen"), User("kevin")],  ["Auth setup", "Field mapping", "Incremental sync"]),
+                        ("Raw to staging transform",      "dbt models to clean and standardise raw ingestion tables.",  1, [User("kevin")],                ["Write models", "Add tests", "Schedule"]),
+                        ("Staging to warehouse load",     "Load transformed data into BigQuery fact and dim tables.",   1, [User("karen"), User("kevin")],  ["Schema design", "Partition strategy", "Load job"]),
+                        ("Data quality tests",           "Great Expectations suite for all critical tables.",          0, [User("karen")],                ["Define expectations", "CI integration"]),
+                        ("Orchestration with Airflow",   "DAG for the full nightly pipeline with retries.",            1, [User("kevin")],                ["Write DAG", "Test backfill", "Set up alerts"]),
+                        ("Executive KPI dashboard",      "Looker dashboard fed by the warehouse aggregates.",          2, [User("karen")],                ["Agree metrics", "Build explores", "Publish"]),
+                        ("Real-time event streaming",     "Kafka topic for user activity events from the app.",         0, [User("kevin"), User("karen")],  ["Topic design", "Producer integration", "Consumer service"]),
+                        ("Data retention policy",        "Archive and purge rules for GDPR compliance.",               0, [User("karen")],                ["Legal review", "Implement TTL rules"]),
+                        ("Pipeline monitoring",          "Alerts for failed runs, stale data, and row count anomalies.",2, [User("kevin")],               ["Define SLOs", "Implement monitors"]),
+                        ("Self-serve query layer",        "Expose curated datasets via a read-only Postgres replica.",  0, [User("karen"), User("kevin")],  ["Provision replica", "IAM setup", "Docs"]),
                     ]
                 ),
             };
@@ -211,4 +216,6 @@ namespace TeamCollabApp.TasksApi.Data
             await db.SaveChangesAsync();
         }
     }
+
+    file record UserEmailId(string Id, string Email);
 }

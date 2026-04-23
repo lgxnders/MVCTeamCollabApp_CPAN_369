@@ -341,7 +341,7 @@
 
 @Html.AntiForgeryToken()
 
-@* Add task modal *@
+@* Add task modal. *@
 <div id="addTaskModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; padding:24px;">
     <div class="card" style="margin:0; width:100%; max-width:480px; max-height:90vh; overflow-y:auto;">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
@@ -387,7 +387,7 @@
     </div>
 </div>
 
-@* Delete task confirmation modal *@
+@* Delete task confirmation modal. *@
 <div id="deleteTaskModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; padding:24px;">
     <div class="card" style="margin:0; width:100%; max-width:380px;">
         <h2 style="font-size:17px; margin-bottom:8px;">Delete task?</h2>
@@ -754,7 +754,7 @@
         btn.textContent = 'Adding…';
         errorEl.style.display = 'none';
 
-        // Build form data — send description and all assignees in one shot
+        // Build form data.
         const formData = new URLSearchParams({
             __RequestVerificationToken: token(),
             columnId,

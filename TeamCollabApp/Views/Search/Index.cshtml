@@ -1,0 +1,169 @@
+@model TeamCollabApp.ViewModels.SearchViewModel
+@{
+    ViewData["Title"] = string.IsNullOrWhiteSpace(Model.Query) ? "Search" : $"Search: {Model.Query}";
+    int totalResults = Model.Projects.Count + Model.Tasks.Count + Model.Members.Count;
+}
+
+<style>
+    .search-result {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        text-decoration: none;
+        color: var(--text);
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    a.search-result:hover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+    a.search-result .result-context { text-decoration: none; }
+    a.search-result .result-context * { text-decoration: none; }
+
+    .result-context {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        min-width: 130px;
+        max-width: 160px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        padding-right: 14px;
+    }
+
+    .result-context-project {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        text-decoration: none;
+    }
+
+    .result-context-type {
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+        text-decoration: none;
+    }
+
+    .result-body { flex: 1; min-width: 0; }
+    .result-title { font-weight: 600; font-size: 15px; }
+    .result-subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .section-card { margin-bottom: 20px; }
+    .section-heading { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 10px; }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Search</h1>
+        @if (Model.SearchPerformed && totalResults > 0)
+        {
+            <p class="muted" style="margin-top:4px; font-size:14px;">
+                @($"{totalResults} result{(totalResults == 1 ? "" : "s")} for \"{Model.Query}\"")
+            </p>
+        }
+    </div>
+</div>
+
+<form method="get" asp-action="Index" style="display:flex; gap:8px; margin-bottom:28px; flex-wrap:wrap;">
+    <input type="text" name="q" value="@Model.Query" placeholder="Search projects, tasks, members…"
+           style="flex:1; min-width:240px;" autofocus autocomplete="off" />
+    <select name="type" style="width:140px; font-size:14px;">
+        <option value="" selected="@(Model.TypeFilter == null)">All types</option>
+        <option value="projects" selected="@(Model.TypeFilter == "projects")">Projects</option>
+        <option value="tasks" selected="@(Model.TypeFilter == "tasks")">Tasks</option>
+        <option value="members" selected="@(Model.TypeFilter == "members")">Members</option>
+    </select>
+    <button class="btn btn-primary" type="submit">Search</button>
+</form>
+
+@if (Model.ServiceUnavailable)
+{
+    <div class="alert alert-error">Search service is currently unavailable. Please try again later.</div>
+}
+
+@if (Model.SearchPerformed && !Model.ServiceUnavailable)
+{
+    @if (totalResults == 0)
+    {
+        <div class="empty-state">
+            <h2>No results</h2>
+            <p class="muted">Try a different search term or remove the type filter.</p>
+        </div>
+    }
+    else
+    {
+        @if (Model.Projects.Any() && (Model.TypeFilter == null || Model.TypeFilter == "projects"))
+        {
+            <div class="section-card">
+                <div class="section-heading">Projects (@Model.Projects.Count)</div>
+                @foreach (var r in Model.Projects)
+                {
+                    <a href="@r.LinkUrl" class="search-result">
+                        <div class="result-context">
+                            <span class="result-context-project">Project</span>
+                        </div>
+                        <div class="result-body">
+                            <div class="result-title">@r.Title</div>
+                            @if (!string.IsNullOrWhiteSpace(r.Subtitle))
+                            {
+                                <div class="result-subtitle">@r.Subtitle</div>
+                            }
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+
+        @if (Model.Tasks.Any() && (Model.TypeFilter == null || Model.TypeFilter == "tasks"))
+        {
+            <div class="section-card">
+                <div class="section-heading">Tasks (@Model.Tasks.Count)</div>
+                @foreach (var r in Model.Tasks)
+                {
+                    <a href="@r.LinkUrl" class="search-result">
+                        <div class="result-context">
+                            <span class="result-context-project" title="@r.ProjectName">@(r.ProjectName ?? "Unknown project")</span>
+                            <span class="result-context-type">Task Board</span>
+                        </div>
+                        <div class="result-body">
+                            <div class="result-title">@r.Title</div>
+                            @if (!string.IsNullOrWhiteSpace(r.Subtitle))
+                            {
+                                <div class="result-subtitle">@r.Subtitle</div>
+                            }
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+
+        @if (Model.Members.Any() && (Model.TypeFilter == null || Model.TypeFilter == "members"))
+        {
+            <div class="section-card">
+                <div class="section-heading">Members (@Model.Members.Count)</div>
+                @foreach (var r in Model.Members)
+                {
+                    <div class="search-result">
+                        <div class="result-context">
+                            <span class="result-context-project">Member</span>
+                        </div>
+                        <div class="result-body" style="display:flex; align-items:center; gap:10px;">
+                            <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; background:var(--accent-dim); color:var(--accent); font-weight:700; font-size:12px; flex-shrink:0;">
+                                @(r.Title.Length > 0 ? r.Title[0].ToString().ToUpper() : "?")
+                            </span>
+                            <span class="result-title">@r.Title</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+}

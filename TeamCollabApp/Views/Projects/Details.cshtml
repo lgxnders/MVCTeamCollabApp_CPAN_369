@@ -4,6 +4,7 @@
     bool isOwner = Model.CurrentUserRole == TeamCollabApp.Models.ProjectRole.Owner;
     bool canEdit = Model.CurrentUserRole >= TeamCollabApp.Models.ProjectRole.Editor;
     var shareUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/Projects/Join/{Model.ShareToken}";
+    var membersPartialUrl = Url.Action("MembersPartial", "Projects", new { id = Model.Id });
 }
 
 <div class="page-header">
@@ -12,6 +13,7 @@
         @* Title and rename row. *@
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">
             <div id="titleDisplay" style="display:flex; align-items:center; gap:8px;">
+                <h1 id="projectTitle">@Model.Name</h1>
                 @if (canEdit)
                 {
                     <button id="renameBtn" title="Rename project"
@@ -23,7 +25,6 @@
                         </svg>
                     </button>
                 }
-                <h1 id="projectTitle">@Model.Name</h1>
             </div>
 
             @if (canEdit)
@@ -48,6 +49,10 @@
         @* Description display and edit row. *@
         <div style="margin-bottom:12px;">
             <div id="descDisplay" style="display:flex; align-items:flex-start; gap:7px;">
+                <span id="descText"
+                      style="font-size:14px; @(string.IsNullOrWhiteSpace(Model.Description) ? "color:var(--muted); font-style:italic;" : "color:var(--muted);")">
+                    @(string.IsNullOrWhiteSpace(Model.Description) ? "No description." : Model.Description)
+                </span>
                 @if (canEdit)
                 {
                     <button id="descBtn" title="Edit description"
@@ -59,10 +64,6 @@
                         </svg>
                     </button>
                 }
-                <span id="descText"
-                      style="font-size:14px; @(string.IsNullOrWhiteSpace(Model.Description) ? "color:var(--muted); font-style:italic;" : "color:var(--muted);")">
-                    @(string.IsNullOrWhiteSpace(Model.Description) ? "No description." : Model.Description)
-                </span>
             </div>
 
             @if (canEdit)
@@ -87,8 +88,6 @@
             <span>Owner: <strong style="color:var(--text);">@Model.OwnerDisplayName</strong></span>
             <span>·</span>
             <span>@Model.CreatedAt.ToString("MMM d, yyyy")</span>
-            <span>·</span>
-            <span>Your role: <span class="badge badge-@Model.CurrentUserRole.ToString().ToLower()">@Model.CurrentUserRole</span></span>
         </div>
 
         @* Share link management, visible to owners only. *@
@@ -121,92 +120,53 @@
                         @Html.AntiForgeryToken()
                         <button class="btn btn-ghost btn-sm" type="submit">Enable</button>
                     </form>
-                    <span style="font-size:12px; color:var(--muted); display:flex; align-items:center; gap:4px;">
-                        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
-                        Public link off
-                    </span>
+                    <span style="font-size:12px; color:var(--muted);">Currently not sharing a public link</span>
                 }
             </div>
         }
 
     </div>
     <div class="page-header-actions">
-        <a class="btn btn-ghost" asp-action="Index">← Projects</a>
+        @if (!Model.IsGuest)
+        {
+            <a class="btn btn-ghost" asp-action="Index">← Projects</a>
+        }
     </div>
+</div>
+
+@* Workspace entry cards. *@
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+    <a asp-controller="Document" asp-action="Index" asp-route-id="@Model.Id"
+       style="display:flex; flex-direction:column; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px; text-decoration:none; color:inherit; transition:border-color 0.15s, box-shadow 0.15s;"
+       onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px var(--accent-ring)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
+        <div>
+            <div style="font-size:15px; font-weight:700; margin-bottom:3px;">Document</div>
+            <div style="font-size:13px; color:var(--muted);">Shared rich-text workspace. Edit together in real time.</div>
+        </div>
+        <div style="margin-top:auto; font-size:13px; color:var(--accent); font-weight:600;">Open document →</div>
+    </a>
+    <a asp-controller="Board" asp-action="Index" asp-route-id="@Model.Id"
+       style="display:flex; flex-direction:column; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px; text-decoration:none; color:inherit; transition:border-color 0.15s, box-shadow 0.15s;"
+       onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px var(--accent-ring)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
+        <div>
+            <div style="font-size:15px; font-weight:700; margin-bottom:3px;">Task Board</div>
+            <div style="font-size:13px; color:var(--muted);">Kanban board with drag and drop cards and live updates.</div>
+        </div>
+        <div style="margin-top:auto; font-size:13px; color:var(--accent); font-weight:600;">Open board →</div>
+    </a>
 </div>
 
 @* Members table and invite form. *@
 <div class="card">
     <div class="card-header">
-        <h2>Members <span class="muted" style="font-weight:400; font-size:15px;">(@Model.Members.Count)</span></h2>
+        <h2>Members <span class="muted" id="memberCount" style="font-weight:400; font-size:15px;">(@Model.Members.Count)</span></h2>
     </div>
 
-    @if (!Model.Members.Any())
-    {
-        <div class="empty-state" style="padding:32px 0;">
-            <p class="muted">No members yet.</p>
-        </div>
-    }
-    else
-    {
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Role</th>
-                    <th>Type</th>
-                    <th>Joined</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var m in Model.Members.OrderByDescending(x => x.Role))
-                {
-                    <tr>
-                        <td style="font-weight:500;">@m.DisplayName</td>
-                        <td>
-                            @if (isOwner)
-                            {
-                                <form asp-action="UpdateRole" method="post" style="display:inline-flex; gap:6px; align-items:center;">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="membershipId" value="@m.MembershipId" />
-                                    <select name="newRole" style="width:auto; padding:4px 28px 4px 8px; font-size:13px;">
-                                        @foreach (var opt in new[] {
-                                            (v: 0, l: "Viewer",    r: TeamCollabApp.Models.ProjectRole.Viewer),
-                                            (v: 1, l: "Commenter", r: TeamCollabApp.Models.ProjectRole.Commenter),
-                                            (v: 2, l: "Editor",    r: TeamCollabApp.Models.ProjectRole.Editor),
-                                            (v: 3, l: "Owner",     r: TeamCollabApp.Models.ProjectRole.Owner),
-                                        })
-                                        {
-                                            if (m.Role == opt.r)
-                                            { <option value="@opt.v" selected>@opt.l</option> }
-                                            else
-                                            { <option value="@opt.v">@opt.l</option> }
-                                        }
-                                    </select>
-                                    <button class="btn btn-ghost btn-sm" type="submit">Save</button>
-                                </form>
-                            }
-                            else
-                            {
-                                <span class="badge badge-@m.Role.ToString().ToLower()">@m.Role</span>
-                            }
-                        </td>
-                        <td>
-                            @if (m.IsGuest)
-                            {
-                                <span class="badge badge-guest">Guest</span>
-                            }
-                            else
-                            {
-                                <span class="muted" style="font-size:13px;">Registered</span>
-                            }
-                        </td>
-                        <td class="muted" style="font-size:13px;">@m.JoinedAt.ToString("MMM d, yyyy")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
+    <div id="membersTableContainer">
+        @await Html.PartialAsync("_MembersPartial", Model)
+    </div>
 
     @if (isOwner)
     {
@@ -308,15 +268,77 @@
     </script>
 }
 
-@* Danger zone for project deletion, visible to owners only. *@
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+<script>
+(function () {
+    const PROJECT_ID = @Model.Id;
+    const MEMBERS_URL = '@membersPartialUrl';
+
+    async function refreshMembers() {
+        try {
+            const res = await fetch(MEMBERS_URL);
+            if (!res.ok) return;
+            const html = await res.text();
+            document.getElementById('membersTableContainer').innerHTML = html;
+        } catch {}
+    }
+
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl('/hubs/collaboration')
+        .withAutomaticReconnect()
+        .build();
+
+    connection.on('MemberJoined', () => refreshMembers());
+
+    connection.start().then(() => {
+        connection.invoke('JoinProjectDetails', PROJECT_ID);
+    });
+})();
+</script>
+}
+
 @if (isOwner)
 {
-    <hr class="divider">
-    <div class="danger-zone">
-        <div>
-            <h3 style="color:var(--danger); margin-bottom:4px;">Delete Project</h3>
-            <p class="muted" style="font-size:13px;">Permanently remove this project and all its members. This cannot be undone.</p>
-        </div>
-        <a class="btn btn-danger" asp-action="Delete" asp-route-id="@Model.Id">Delete Project</a>
+    <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+        <button class="btn btn-danger btn-sm" onclick="document.getElementById('deleteModal').style.display='flex'">Delete Project</button>
     </div>
+
+    <div id="deleteModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; padding:24px;">
+        <div class="card" style="margin:0; max-width:440px; width:100%;">
+            <h2 style="font-size:18px; margin-bottom:8px;">Delete project?</h2>
+            <p class="muted" style="font-size:14px; margin-bottom:20px; line-height:1.6;">
+                This project and all its members will be permanently lost. This cannot be undone.
+            </p>
+            <p style="font-size:13px; margin-bottom:8px;">
+                Type <strong>@Model.Name</strong> to confirm.
+            </p>
+            <input id="deleteConfirmInput" type="text" placeholder="@Model.Name" autocomplete="off" style="margin-bottom:16px;" />
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button class="btn btn-ghost" onclick="document.getElementById('deleteModal').style.display='none'; document.getElementById('deleteConfirmInput').value='';">Cancel</button>
+                <form asp-action="Delete" asp-route-id="@Model.Id" method="post" style="display:inline;">
+                    @Html.AntiForgeryToken()
+                    <button id="deleteConfirmBtn" class="btn btn-danger" type="submit" disabled>Delete Project</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const input = document.getElementById('deleteConfirmInput');
+            const btn = document.getElementById('deleteConfirmBtn');
+            const expected = @Json.Serialize(Model.Name);
+            input.addEventListener('input', () => {
+                btn.disabled = input.value !== expected;
+            });
+            document.getElementById('deleteModal').addEventListener('click', function (e) {
+                if (e.target === this) {
+                    this.style.display = 'none';
+                    input.value = '';
+                    btn.disabled = true;
+                }
+            });
+        })();
+    </script>
 }

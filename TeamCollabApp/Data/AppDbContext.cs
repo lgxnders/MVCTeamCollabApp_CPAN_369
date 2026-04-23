@@ -9,6 +9,8 @@ namespace TeamCollabApp.Data
         public DbSet<Project>           Projects            => Set<Project>();
         public DbSet<ProjectMembership> ProjectMemberships  => Set<ProjectMembership>();
         public DbSet<GuestSession>      GuestSessions       => Set<GuestSession>();
+        public DbSet<ProjectDocument>   ProjectDocuments    => Set<ProjectDocument>();
+        public DbSet<DocumentComment>   DocumentComments    => Set<DocumentComment>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -42,6 +44,26 @@ namespace TeamCollabApp.Data
                 e.HasIndex(g => g.SessionToken).IsUnique();
                 e.Property(g => g.SessionToken).HasMaxLength(128);
                 e.Property(g => g.DisplayName).HasMaxLength(100);
+            });
+
+            // Configure the ProjectDocument entity.
+            builder.Entity<ProjectDocument>(e =>
+            {
+                e.HasOne(d => d.Project)
+                    .WithMany()
+                    .HasForeignKey(d => d.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure the DocumentComment entity.
+            builder.Entity<DocumentComment>(e =>
+            {
+                e.Property(c => c.CommentKey).HasMaxLength(64);
+                e.HasIndex(c => c.CommentKey).IsUnique();
+                e.HasOne(c => c.Document)
+                    .WithMany(d => d.Comments)
+                    .HasForeignKey(c => c.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Configure the ProjectMembership entity.

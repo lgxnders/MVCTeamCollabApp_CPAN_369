@@ -1,0 +1,680 @@
+@model TeamCollabApp.ViewModels.DocumentViewModel
+@{
+    ViewData["Title"] = $"{Model.ProjectName} — Document";
+    bool canEdit = Model.CurrentUserRole >= TeamCollabApp.Models.ProjectRole.Editor;
+    bool canComment = Model.CurrentUserRole >= TeamCollabApp.Models.ProjectRole.Commenter;
+    string antiForgery = Html.AntiForgeryToken().ToString() ?? string.Empty;
+}
+
+<style>
+    .doc-layout {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+    }
+
+    .doc-main { flex: 1; min-width: 0; }
+
+    .doc-sidebar {
+        width: 280px;
+        flex-shrink: 0;
+    }
+
+    .presence-strip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        min-height: 28px;
+        margin-bottom: 12px;
+    }
+
+    .presence-avatar {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent-dim);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        border: 2px solid var(--accent);
+        flex-shrink: 0;
+        cursor: default;
+    }
+
+    .presence-avatar .presence-tooltip {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text);
+        color: #fff;
+        border-radius: var(--radius);
+        padding: 5px 10px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 500;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    .presence-avatar .presence-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: var(--text);
+    }
+    .presence-avatar:hover .presence-tooltip { display: block; }
+
+    .editor-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-bottom: none;
+        border-radius: var(--radius) var(--radius) 0 0;
+        flex-wrap: wrap;
+    }
+
+    .toolbar-btn {
+        padding: 4px 10px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 13px;
+        font-family: var(--font);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .toolbar-btn:hover { background: var(--surface-2); border-color: var(--accent); }
+    .toolbar-btn.ql-active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+    #editor-container {
+        border: 1px solid var(--border);
+        border-radius: 0 0 var(--radius) var(--radius);
+        min-height: 480px;
+        font-size: 15px;
+        background: var(--bg);
+    }
+
+    .ql-editor { min-height: 480px; padding: 20px 24px; line-height: 1.7; }
+    .ql-editor:focus { outline: none; }
+
+    .comment-highlight,
+    .ql-editor .comment-highlight {
+        background: rgba(22,163,74,0.22) !important;
+        border-bottom: 2px solid rgba(22,163,74,0.6) !important;
+        border-radius: 2px;
+        cursor: pointer;
+        transition: background 0.15s, border-bottom-color 0.15s;
+    }
+    .comment-highlight.comment-hover,
+    .ql-editor .comment-highlight.comment-hover {
+        background: rgba(22,163,74,0.45) !important;
+        border-bottom-color: rgb(22,163,74) !important;
+    }
+
+    .comment-card {
+        transition: border-color 0.15s, box-shadow 0.15s;
+        cursor: default;
+    }
+    .comment-card.comment-hover {
+        border-color: rgb(22,163,74);
+        box-shadow: 0 0 0 2px rgba(22,163,74,0.2);
+    }
+
+    .comment-tooltip {
+        position: absolute;
+        background: var(--text);
+        color: #fff;
+        border-radius: var(--radius);
+        padding: 8px 12px;
+        font-size: 13px;
+        max-width: 280px;
+        z-index: 200;
+        pointer-events: none;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        display: none;
+    }
+    .comment-tooltip .ct-author { font-weight: 600; font-size: 11px; opacity: 0.7; margin-bottom: 3px; }
+
+    .floating-toolbar {
+        position: absolute;
+        background: var(--text);
+        border-radius: var(--radius);
+        padding: 4px 6px;
+        display: none;
+        gap: 4px;
+        z-index: 300;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .floating-toolbar button {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 12px;
+        font-family: var(--font);
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .floating-toolbar button:hover { background: rgba(255,255,255,0.15); }
+
+    .comment-input-box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+        margin-top: 8px;
+        display: none;
+    }
+    .comment-input-box textarea {
+        width: 100%;
+        min-height: 80px;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    .comment-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        font-size: 13px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        cursor: default;
+    }
+    .comment-card-author { font-weight: 600; font-size: 12px; color: var(--accent); margin-bottom: 4px; }
+    .comment-card-text { color: var(--text); line-height: 1.5; margin-bottom: 6px; }
+    .comment-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+    .status-bar {
+        font-size: 12px;
+        color: var(--muted);
+        height: 20px;
+        margin-top: 6px;
+    }
+</style>
+
+<div class="page-header" style="margin-bottom: 20px;">
+    <div>
+        <h1>@Model.ProjectName</h1>
+        <p class="muted" style="margin-top: 4px; font-size: 14px;">Shared Document</p>
+    </div>
+    <div class="page-header-actions">
+        <a class="btn btn-ghost" asp-controller="Board" asp-action="Index" asp-route-id="@Model.ProjectId">← Task Board</a>
+        <a class="btn btn-ghost" asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">← Project</a>
+    </div>
+</div>
+
+<div class="presence-strip" id="presenceStrip">
+    <span class="muted" style="font-size:12px;">Online:</span>
+    <span class="presence-avatar">
+        @(Model.CurrentUserDisplayName.Length > 0 ? Model.CurrentUserDisplayName[0].ToString().ToUpper() : "?")
+        <span class="presence-tooltip">@Model.CurrentUserDisplayName &middot; @Model.CurrentUserRole</span>
+    </span>
+</div>
+
+<div class="doc-layout">
+    <div class="doc-main">
+
+        @if (canEdit)
+        {
+            <div class="editor-toolbar" id="toolbar">
+                <button class="toolbar-btn ql-bold" title="Bold"><strong>B</strong></button>
+                <button class="toolbar-btn ql-italic" title="Italic"><em>I</em></button>
+                <button class="toolbar-btn ql-underline" title="Underline"><u>U</u></button>
+                <span style="border-left:1px solid var(--border); height:20px; margin:0 4px;"></span>
+                <button class="toolbar-btn ql-header" value="1" title="Heading 1">H1</button>
+                <button class="toolbar-btn ql-header" value="2" title="Heading 2">H2</button>
+                <span style="border-left:1px solid var(--border); height:20px; margin:0 4px;"></span>
+                <button class="toolbar-btn ql-list" value="ordered" title="Ordered list">1.</button>
+                <button class="toolbar-btn ql-list" value="bullet" title="Bullet list">•</button>
+                <span style="border-left:1px solid var(--border); height:20px; margin:0 4px;"></span>
+                <button class="toolbar-btn ql-blockquote" title="Blockquote">"</button>
+                <button class="toolbar-btn ql-code-block" title="Code block">&lt;/&gt;</button>
+                <span style="border-left:1px solid var(--border); height:20px; margin:0 4px;"></span>
+                <button class="toolbar-btn ql-undo" title="Undo">↩</button>
+                <button class="toolbar-btn ql-redo" title="Redo">↪</button>
+            </div>
+        }
+
+        <div id="editor-container"></div>
+        <div class="status-bar" id="statusBar"></div>
+
+        @if (canComment)
+        {
+            <div class="floating-toolbar" id="floatingToolbar">
+                <button id="addCommentBtn">💬 Comment</button>
+            </div>
+            <div class="comment-input-box" id="commentInputBox">
+                <textarea id="commentTextInput" placeholder="Add a comment…"></textarea>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-primary btn-sm" id="submitCommentBtn">Post</button>
+                    <button class="btn btn-ghost btn-sm" id="cancelCommentBtn">Cancel</button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="doc-sidebar">
+        <h2 style="font-size:14px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); margin-bottom:12px;">Comments</h2>
+        <div id="commentsList">
+            @foreach (var c in Model.Comments)
+            {
+                <div class="comment-card" data-key="@c.CommentKey" id="comment-@c.CommentKey">
+                    <div class="comment-card-author">@c.UserDisplayName</div>
+                    <div class="comment-card-text">@c.CommentText</div>
+                    <div class="comment-card-footer">
+                        <span class="muted" style="font-size:11px;">@c.CreatedAt.ToString("MMM d, h:mm tt")</span>
+                        @if (canEdit)
+                        {
+                            <button class="btn btn-ghost btn-sm resolve-btn" data-key="@c.CommentKey" style="font-size:11px; padding:2px 8px;">Resolve</button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="comment-tooltip" id="commentTooltip">
+    <div class="ct-author" id="tooltipAuthor"></div>
+    <div id="tooltipText"></div>
+</div>
+
+@section Scripts {
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet" />
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+<script>
+(function () {
+    const PROJECT_ID = @Model.ProjectId;
+    const DOCUMENT_ID = @Model.DocumentId;
+    const CAN_EDIT = @Json.Serialize(canEdit);
+    const CAN_COMMENT = @Json.Serialize(canComment);
+    const DISPLAY_NAME = @Json.Serialize(Model.CurrentUserDisplayName);
+    const MEMBER_INFO = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.ProjectMembers.ToDictionary(m => m.DisplayName, m => m.Role)
+    ));
+    const SAVE_URL = '@Url.Action("Save", "Document", new { id = Model.ProjectId })';
+    const COMMENT_URL = '@Url.Action("Comment", "Document", new { id = Model.ProjectId })';
+    const RESOLVE_URL = '@Url.Action("ResolveComment", "Document", new { id = Model.ProjectId })';
+
+    const commentMeta = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.Comments.ToDictionary(
+            c => c.CommentKey,
+            c => new { c.UserDisplayName, c.CommentText }
+        )
+    ));
+
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+
+    const Inline = Quill.import('blots/inline');
+    class CommentBlot extends Inline {
+        static create(value) {
+            const node = super.create();
+            node.setAttribute('data-comment-key', value);
+            return node;
+        }
+        static formats(node) {
+            return node.getAttribute('data-comment-key') || true;
+        }
+        format(name, value) {
+            if (name === CommentBlot.blotName) {
+                if (value) {
+                    this.domNode.setAttribute('data-comment-key', value);
+                } else {
+                    this.domNode.removeAttribute('data-comment-key');
+                    super.format(name, value);
+                }
+            } else {
+                super.format(name, value);
+            }
+        }
+    }
+    CommentBlot.blotName = 'comment';
+    CommentBlot.tagName = 'span';
+    CommentBlot.className = 'comment-highlight';
+    Quill.register(CommentBlot);
+
+    // Apply green highlight styles to any span[data-comment-key] in the editor.
+    function applyHighlightStyles(el) {
+        el.style.background = 'rgba(22,163,74,0.22)';
+        el.style.borderBottom = '2px solid rgba(22,163,74,0.6)';
+        el.style.borderRadius = '2px';
+        el.style.cursor = 'pointer';
+        el.style.transition = 'background 0.15s, border-bottom-color 0.15s';
+    }
+
+    function styleAllHighlights() {
+        document.querySelectorAll('#editor-container [data-comment-key]').forEach(applyHighlightStyles);
+    }
+
+    const quill = new Quill('#editor-container', {
+        theme: 'snow',
+        readOnly: !CAN_EDIT,
+        modules: {
+            toolbar: CAN_EDIT ? '#toolbar' : false,
+            history: { delay: 1000, maxStack: 100, userOnly: true }
+        }
+    });
+
+    try {
+        const savedDelta = @Html.Raw(Model.ContentJson);
+        if (savedDelta && savedDelta.ops) quill.setContents(savedDelta, 'silent');
+    } catch (e) {}
+
+    // Style any highlights already in the editor (from loaded content).
+    styleAllHighlights();
+
+    // Watch for new spans added by Quill (e.g. when user applies a comment format).
+    const highlightObserver = new MutationObserver(() => styleAllHighlights());
+    highlightObserver.observe(document.getElementById('editor-container'), { childList: true, subtree: true });
+
+    // Custom undo/redo toolbar buttons.
+    const toolbar = quill.getModule('toolbar');
+    if (toolbar) {
+        document.querySelector('.ql-undo')?.addEventListener('click', () => quill.history.undo());
+        document.querySelector('.ql-redo')?.addEventListener('click', () => quill.history.redo());
+    }
+
+    // SignalR connection.
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl('/hubs/collaboration')
+        .withAutomaticReconnect()
+        .build();
+
+    let isBroadcastingDelta = false;
+
+    connection.on('ReceiveDocumentDelta', delta => {
+        isBroadcastingDelta = true;
+        quill.updateContents(delta, 'silent');
+        isBroadcastingDelta = false;
+    });
+
+    connection.on('OnCommentAdded', payload => {
+        addCommentCard(payload.commentKey, payload.userDisplayName, payload.commentText, payload.createdAt);
+        commentMeta[payload.commentKey] = { userDisplayName: payload.userDisplayName, commentText: payload.commentText };
+    });
+
+    connection.on('OnCommentResolved', commentKey => {
+        removeCommentCard(commentKey);
+        removeCommentHighlight(commentKey);
+    });
+
+    connection.on('UserJoined', name => addPresenceAvatar(name));
+    connection.on('UserLeft', name => removePresenceAvatar(name));
+
+    connection.start().then(() => {
+        connection.invoke('JoinProject', PROJECT_ID);
+        connection.invoke('AnnouncePresence', PROJECT_ID, DISPLAY_NAME);
+    });
+
+    window.addEventListener('beforeunload', () => {
+        connection.invoke('AnnounceLeave', PROJECT_ID, DISPLAY_NAME);
+    });
+
+    // Debounced autosave.
+    let saveTimer = null;
+    const statusBar = document.getElementById('statusBar');
+
+    function scheduleSave() {
+        clearTimeout(saveTimer);
+        statusBar.textContent = 'Saving changes…';
+        saveTimer = setTimeout(async () => {
+            const delta = JSON.stringify(quill.getContents());
+            const body = new URLSearchParams({ contentJson: delta, __RequestVerificationToken: getAntiForgeryToken() });
+            try {
+                await fetch(SAVE_URL, { method: 'POST', body });
+                statusBar.textContent = 'Saved.';
+                setTimeout(() => { statusBar.textContent = ''; }, 2000);
+            } catch {
+                statusBar.textContent = 'Save failed';
+            }
+        }, 3000);
+    }
+
+    if (CAN_EDIT) {
+        quill.on('text-change', (delta, _old, source) => {
+            if (source !== 'user' || isBroadcastingDelta) return;
+            connection.invoke('SendDocumentDelta', PROJECT_ID, delta);
+            scheduleSave();
+        });
+    }
+
+    // Floating comment toolbar on selection.
+    if (CAN_COMMENT) {
+        const floatingToolbar = document.getElementById('floatingToolbar');
+        const commentInputBox = document.getElementById('commentInputBox');
+        const commentTextInput = document.getElementById('commentTextInput');
+        let pendingCommentKey = null;
+        let pendingCommentRange = null;
+
+        quill.on('selection-change', (range) => {
+            if (range && range.length > 0) {
+                const editorEl = document.getElementById('editor-container');
+                const editorRect = editorEl.getBoundingClientRect();
+                const selBounds = quill.getBounds(range.index, range.length);
+                floatingToolbar.style.display = 'flex';
+                floatingToolbar.style.top = (editorRect.top + window.scrollY + selBounds.top - 44) + 'px';
+                floatingToolbar.style.left = (editorRect.left + selBounds.left) + 'px';
+                floatingToolbar.style.position = 'absolute';
+            } else {
+                floatingToolbar.style.display = 'none';
+            }
+        });
+
+        document.getElementById('addCommentBtn').addEventListener('click', () => {
+            const range = quill.getSelection();
+            if (!range || range.length === 0) return;
+            pendingCommentRange = { index: range.index, length: range.length };
+            pendingCommentKey = 'ck' + Date.now().toString(36);
+            commentInputBox.style.display = 'block';
+            commentTextInput.focus();
+            floatingToolbar.style.display = 'none';
+        });
+
+        document.getElementById('cancelCommentBtn').addEventListener('click', () => {
+            commentInputBox.style.display = 'none';
+            commentTextInput.value = '';
+            pendingCommentKey = null;
+            pendingCommentRange = null;
+        });
+
+        document.getElementById('submitCommentBtn').addEventListener('click', async () => {
+            const text = commentTextInput.value.trim();
+            if (!text || !pendingCommentKey) return;
+
+            if (pendingCommentRange) {
+                quill.formatText(pendingCommentRange.index, pendingCommentRange.length, 'comment', pendingCommentKey, 'user');
+                // Move cursor to end of highlighted range and strip the comment format
+                // so subsequent typing doesn't inherit it.
+                const endIndex = pendingCommentRange.index + pendingCommentRange.length;
+                quill.setSelection(endIndex, 0, 'silent');
+                quill.format('comment', false, 'silent');
+            }
+
+            const body = new URLSearchParams({
+                commentKey: pendingCommentKey,
+                commentText: text,
+                __RequestVerificationToken: getAntiForgeryToken()
+            });
+
+            try {
+                const res = await fetch(COMMENT_URL, { method: 'POST', body });
+                const payload = await res.json();
+                addCommentCard(pendingCommentKey, payload.userDisplayName, payload.commentText, payload.createdAt);
+                commentMeta[pendingCommentKey] = { userDisplayName: payload.userDisplayName, commentText: text };
+                await connection.invoke('CommentAdded', PROJECT_ID, payload);
+                scheduleSave();
+            } catch {}
+
+            commentInputBox.style.display = 'none';
+            commentTextInput.value = '';
+            pendingCommentKey = null;
+            pendingCommentRange = null;
+        });
+    }
+
+    // Comment tooltip on hover + cross-hover between highlights and sidebar cards.
+    const tooltip = document.getElementById('commentTooltip');
+    const tooltipAuthor = document.getElementById('tooltipAuthor');
+    const tooltipText = document.getElementById('tooltipText');
+
+    let activeHighlightKey = null;
+    let activeCardKey = null;
+
+    function setHighlightHovered(key, hovered) {
+        document.querySelectorAll(`#editor-container [data-comment-key="${key}"]`).forEach(el => {
+            if (hovered) {
+                el.style.background = 'rgba(22,163,74,0.45)';
+                el.style.borderBottomColor = 'rgb(22,163,74)';
+            } else {
+                el.style.background = 'rgba(22,163,74,0.22)';
+                el.style.borderBottomColor = 'rgba(22,163,74,0.6)';
+            }
+        });
+    }
+
+    function clearHighlightHover() {
+        if (activeHighlightKey) {
+            document.getElementById(`comment-${activeHighlightKey}`)?.classList.remove('comment-hover');
+            setHighlightHovered(activeHighlightKey, false);
+            activeHighlightKey = null;
+        }
+    }
+
+    function clearCardHover() {
+        if (activeCardKey) {
+            setHighlightHovered(activeCardKey, false);
+            activeCardKey = null;
+        }
+    }
+
+    document.getElementById('editor-container').addEventListener('mousemove', e => {
+        const span = e.target.closest('[data-comment-key]');
+        if (!span) {
+            tooltip.style.display = 'none';
+            clearHighlightHover();
+            return;
+        }
+        const key = span.getAttribute('data-comment-key');
+
+        if (key !== activeHighlightKey) {
+            clearHighlightHover();
+            activeHighlightKey = key;
+            setHighlightHovered(key, true);
+            const card = document.getElementById(`comment-${key}`);
+            if (card) {
+                card.classList.add('comment-hover');
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        const meta = commentMeta[key];
+        if (!meta) return;
+        tooltipAuthor.textContent = meta.userDisplayName;
+        tooltipText.textContent = meta.commentText;
+        tooltip.style.display = 'block';
+        tooltip.style.top = (e.pageY + 12) + 'px';
+        tooltip.style.left = (e.pageX + 8) + 'px';
+    });
+
+    document.getElementById('editor-container').addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+        clearHighlightHover();
+    });
+
+    // Cross-hover: hovering a comment card highlights the corresponding text spans.
+    document.getElementById('commentsList').addEventListener('mouseover', e => {
+        const card = e.target.closest('.comment-card');
+        if (!card) { clearCardHover(); return; }
+        const key = card.dataset.key;
+        if (key === activeCardKey) return;
+        clearCardHover();
+        activeCardKey = key;
+        setHighlightHovered(key, true);
+    });
+
+    document.getElementById('commentsList').addEventListener('mouseleave', () => {
+        clearCardHover();
+    });
+
+    // Resolve comment buttons.
+    document.getElementById('commentsList').addEventListener('click', async e => {
+        const btn = e.target.closest('.resolve-btn');
+        if (!btn) return;
+        const key = btn.dataset.key;
+        const body = new URLSearchParams({ commentKey: key, __RequestVerificationToken: getAntiForgeryToken() });
+        try {
+            await fetch(RESOLVE_URL, { method: 'POST', body });
+            removeCommentCard(key);
+            removeCommentHighlight(key);
+            await connection.invoke('CommentResolved', PROJECT_ID, key);
+        } catch {}
+    });
+
+    function addCommentCard(key, author, text, createdAt) {
+        if (document.getElementById(`comment-${key}`)) return;
+        const card = document.createElement('div');
+        card.className = 'comment-card';
+        card.id = `comment-${key}`;
+        card.dataset.key = key;
+        const date = createdAt ? new Date(createdAt).toLocaleString() : 'now';
+        card.innerHTML = `
+            <div class="comment-card-author">${author}</div>
+            <div class="comment-card-text">${text}</div>
+            <div class="comment-card-footer">
+                <span class="muted" style="font-size:11px;">${date}</span>
+                ${CAN_EDIT ? `<button class="btn btn-ghost btn-sm resolve-btn" data-key="${key}" style="font-size:11px; padding:2px 8px;">Resolve</button>` : ''}
+            </div>
+        `;
+        document.getElementById('commentsList').prepend(card);
+    }
+
+    function removeCommentCard(key) {
+        document.getElementById(`comment-${key}`)?.remove();
+    }
+
+    function removeCommentHighlight(key) {
+        document.querySelectorAll(`.comment-highlight[data-comment-key="${key}"]`).forEach(el => {
+            el.outerHTML = el.innerHTML;
+        });
+    }
+
+    // Presence strip helpers.
+    const presenceAvatars = {};
+
+    function addPresenceAvatar(name) {
+        if (name === DISPLAY_NAME || presenceAvatars[name]) return;
+        const role = MEMBER_INFO[name] ?? 'Guest';
+        const avatar = document.createElement('span');
+        avatar.className = 'presence-avatar';
+        avatar.innerHTML = `${name.charAt(0).toUpperCase()}<span class="presence-tooltip">${name} &middot; ${role}</span>`;
+        presenceAvatars[name] = avatar;
+        document.getElementById('presenceStrip').appendChild(avatar);
+    }
+
+    function removePresenceAvatar(name) {
+        presenceAvatars[name]?.remove();
+        delete presenceAvatars[name];
+    }
+})();
+</script>
+}
+
+@Html.AntiForgeryToken()

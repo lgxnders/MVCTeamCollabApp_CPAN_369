@@ -1,0 +1,96 @@
+@model TeamCollabApp.ViewModels.ProjectDetailsViewModel
+@{
+    bool isOwner = Model.CurrentUserRole == TeamCollabApp.Models.ProjectRole.Owner;
+}
+
+@if (!Model.Members.Any())
+{
+    <div class="empty-state" style="padding:32px 0;">
+        <p class="muted">No members yet.</p>
+    </div>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Type</th>
+                <th>Joined</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in Model.Members.OrderByDescending(x => x.Role))
+            {
+                <tr>
+                    <td style="font-weight:500;">
+                        @m.DisplayName
+                        @if (m.IsCurrentUser)
+                        {
+                            <span style="display:inline-block; font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; background:var(--accent-dim); color:var(--accent); letter-spacing:0.3px; margin-left:4px; vertical-align:middle;">you</span>
+                        }
+                    </td>
+                    <td>
+                        @if (isOwner)
+                        {
+                            <form asp-action="UpdateRole" method="post" style="display:inline-flex; gap:6px; align-items:center;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="membershipId" value="@m.MembershipId" />
+                                <select name="newRole" style="width:auto; padding:4px 28px 4px 8px; font-size:13px;" onchange="this.form.submit()">
+                                    @foreach (var opt in new[] {
+                                        (v: 0, l: "Viewer",    r: TeamCollabApp.Models.ProjectRole.Viewer),
+                                        (v: 1, l: "Commenter", r: TeamCollabApp.Models.ProjectRole.Commenter),
+                                        (v: 2, l: "Editor",    r: TeamCollabApp.Models.ProjectRole.Editor),
+                                        (v: 3, l: "Owner",     r: TeamCollabApp.Models.ProjectRole.Owner),
+                                    })
+                                    {
+                                        if (m.Role == opt.r)
+                                        { <option value="@opt.v" selected>@opt.l</option> }
+                                        else
+                                        { <option value="@opt.v">@opt.l</option> }
+                                    }
+                                </select>
+                            </form>
+                        }
+                        else
+                        {
+                            @if (m.Role == TeamCollabApp.Models.ProjectRole.Owner)
+                            {
+                                <span style="font-size:13px; font-weight:600; color:var(--text);">Owner</span>
+                            }
+                            else
+                            {
+                                <span class="muted" style="font-size:13px;">@m.Role</span>
+                            }
+                        }
+                    </td>
+                    <td>
+                        @if (m.IsGuest)
+                        {
+                            <span class="muted" style="font-size:13px;">Guest</span>
+                        }
+                        else
+                        {
+                            <span class="muted" style="font-size:13px;">Registered</span>
+                        }
+                    </td>
+                    <td class="muted" style="font-size:13px;">
+                        @m.JoinedAt.ToString("MMM d, yyyy")
+                        @if (isOwner && !m.IsCurrentUser && m.Role != TeamCollabApp.Models.ProjectRole.Owner)
+                        {
+                            <form asp-action="RemoveMember" method="post" style="display:inline; margin-left:8px;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="membershipId" value="@m.MembershipId" />
+                                <button type="submit" style="background:none; border:none; cursor:pointer; font-size:11px; font-weight:700; color:var(--danger); padding:0; letter-spacing:0.2px;"
+                                        onclick="return confirm('Remove @m.DisplayName from this project?')">
+                                    remove
+                                </button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

@@ -1,0 +1,6 @@
+@TeamCollabApp.SearchApi_HostAddress = http://localhost:5150
+
+GET {{TeamCollabApp.SearchApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

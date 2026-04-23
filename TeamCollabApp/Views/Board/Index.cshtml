@@ -1,0 +1,833 @@
+@model TeamCollabApp.ViewModels.BoardViewModel
+@{
+    ViewData["Title"] = $"{Model.ProjectName} — Board";
+    bool canEdit = Model.CurrentUserRole >= TeamCollabApp.Models.ProjectRole.Editor;
+    bool isOwner = Model.CurrentUserRole == TeamCollabApp.Models.ProjectRole.Owner;
+    var memberMap = Model.ProjectMembers.ToDictionary(m => m.UserId, m => m.DisplayName);
+}
+
+<style>
+    .board-page { max-width: 100%; padding: 0 24px 60px; }
+    /* Override the default 960px main constraint for the board. */
+    main { max-width: 100% !important; }
+
+    .board-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 28px 0 16px;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .presence-strip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        min-height: 24px;
+        margin-bottom: 12px;
+    }
+
+    .presence-avatar {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--accent-dim);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        border: 2px solid var(--accent);
+        cursor: default;
+    }
+
+    .presence-avatar .presence-tooltip {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text);
+        color: #fff;
+        border-radius: var(--radius);
+        padding: 5px 10px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 500;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    .presence-avatar .presence-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: var(--text);
+    }
+    .presence-avatar:hover .presence-tooltip { display: block; }
+
+    .board-columns {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        align-items: start;
+        padding-bottom: 24px;
+    }
+
+    .board-column {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .column-header {
+        display: flex;
+        align-items: center;
+        padding: 14px 16px 12px;
+        border-bottom: 1px solid var(--border);
+        gap: 8px;
+    }
+
+    .column-title {
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        flex: 1;
+    }
+
+    .task-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        min-height: 60px;
+    }
+
+    .task-card {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        user-select: none;
+    }
+    .task-card:hover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+    .task-card.sortable-ghost { opacity: 0.4; }
+
+    .task-card-title { font-size: 14px; font-weight: 500; line-height: 1.4; }
+    .task-card-desc { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.75; }
+
+    .task-card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 8px;
+    }
+
+    .task-assignees {
+        display: flex;
+        flex-direction: row-reverse;
+        margin-left: auto;
+    }
+
+    .assignee-initials {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        font-size: 9px;
+        font-weight: 700;
+        background: var(--accent-dim);
+        color: var(--accent);
+        border: 2px solid var(--bg);
+        margin-left: -4px;
+        cursor: default;
+    }
+
+    .assignee-initials .assignee-tooltip {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 5px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text);
+        color: #fff;
+        border-radius: var(--radius);
+        padding: 4px 8px;
+        font-size: 11px;
+        white-space: nowrap;
+        z-index: 500;
+        pointer-events: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    .assignee-initials .assignee-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: var(--text);
+    }
+    .assignee-initials:hover .assignee-tooltip { display: block; }
+
+    .column-empty {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 8px 4px;
+        font-style: italic;
+    }
+
+    /* Detail panel */
+    .panel-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 400;
+        align-items: flex-start;
+        justify-content: flex-end;
+    }
+    .panel-overlay.open { display: flex; }
+
+    .detail-panel {
+        width: 420px;
+        max-width: 100vw;
+        height: 100vh;
+        background: var(--bg);
+        border-left: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .panel-section { margin-bottom: 4px; }
+    .panel-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+
+    .assignee-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+</style>
+
+<div style="max-width:100%; padding:0 24px 60px;">
+
+    <div class="board-header">
+        <div>
+            <h1>@Model.ProjectName</h1>
+            <p class="muted" style="font-size:14px; margin-top:4px;">Task Board</p>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            @if (canEdit)
+            {
+                <button class="btn btn-primary btn-sm" onclick="promptAddTask()">+ Add task</button>
+            }
+            <a class="btn btn-ghost" asp-controller="Document" asp-action="Index" asp-route-id="@Model.ProjectId">← Document</a>
+            <a class="btn btn-ghost" asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">← Project</a>
+        </div>
+    </div>
+
+    <div class="presence-strip" id="presenceStrip">
+        <span class="muted" style="font-size:12px;">Online:</span>
+        <span class="presence-avatar">
+            @(Model.CurrentUserDisplayName.Length > 0 ? Model.CurrentUserDisplayName[0].ToString().ToUpper() : "?")
+            <span class="presence-tooltip">@Model.CurrentUserDisplayName &middot; @Model.CurrentUserRole</span>
+        </span>
+    </div>
+
+    <div class="board-columns" id="boardColumns">
+        @foreach (var col in Model.Columns)
+        {
+            <div class="board-column" data-column-id="@col.Id">
+                <div class="column-header">
+                    <span class="column-title">@col.Title</span>
+                    <span class="column-count" style="font-size:12px; color:var(--muted); font-weight:400;">@col.Tasks.Count</span>
+                </div>
+                <div class="task-list" id="task-list-@col.Id" data-column-id="@col.Id">
+                    @foreach (var task in col.Tasks.OrderBy(t => t.Position))
+                    {
+                        <div class="task-card" data-task-id="@task.Id" onclick="openTaskPanel(@task.Id)">
+                            <div class="task-card-title">@task.Title</div>
+                            @if (!string.IsNullOrWhiteSpace(task.Description))
+                            {
+                                <div class="task-card-desc">@task.Description</div>
+                            }
+                            <div class="task-card-footer">
+                                <div class="task-assignees">
+                                    @foreach (var uid in task.AssigneeUserIds)
+                                    {
+                                        var name = memberMap.TryGetValue(uid, out var n) ? n : "?";
+                                        <span class="assignee-initials">@(name.Length > 0 ? name[0].ToString().ToUpper() : "?")<span class="assignee-tooltip">@name</span></span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (!col.Tasks.Any())
+                    {
+                        <span class="column-empty">No tasks yet</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="panel-overlay" id="panelOverlay" onclick="if(event.target===this)closePanel()">
+    <div class="detail-panel" id="detailPanel">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <h2 id="panelTitle" style="font-size:17px;" contenteditable="true"></h2>
+            <button class="btn btn-ghost btn-sm" onclick="closePanel()">✕</button>
+        </div>
+
+        <div class="panel-section" id="panelDescSection">
+            <div class="panel-label">Description</div>
+            <textarea id="panelDesc" rows="3" placeholder="Add a description…" style="font-size:14px;"></textarea>
+        </div>
+
+        <div class="panel-section" id="panelAssigneesSection">
+            <div class="panel-label">Assignees</div>
+            <div id="assigneesList"></div>
+            @if (canEdit)
+            {
+                <div style="display:flex; gap:6px; margin-top:6px;">
+                    <select id="assigneeSelect" style="font-size:13px; flex:1;">
+                        <option value="">Add member…</option>
+                        @foreach (var m in Model.ProjectMembers)
+                        {
+                            <option value="@m.UserId">@m.DisplayName</option>
+                        }
+                    </select>
+                    <button class="btn btn-ghost btn-sm" onclick="addAssignee()">Add</button>
+                </div>
+            }
+        </div>
+
+        @if (canEdit)
+        {
+            <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px;">
+                <button class="btn btn-primary btn-sm" onclick="saveTaskChanges()">Save changes</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteCurrentTask()">Delete task</button>
+            </div>
+        }
+    </div>
+</div>
+
+@Html.AntiForgeryToken()
+
+@* Add task modal *@
+<div id="addTaskModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; padding:24px;">
+    <div class="card" style="margin:0; width:100%; max-width:480px; max-height:90vh; overflow-y:auto;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+            <h2 style="font-size:17px;">New task</h2>
+            <button onclick="closeAddTaskModal()" style="background:none; border:none; cursor:pointer; font-size:18px; color:var(--muted); line-height:1; padding:0;">✕</button>
+        </div>
+        <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="addTaskTitle" placeholder="Task title…" autocomplete="off" />
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="addTaskDescription" placeholder="Optional description…" rows="3" style="font-size:14px;"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Column</label>
+            <select id="addTaskColumn">
+                @foreach (var col in Model.Columns)
+                {
+                    <option value="@col.Id">@col.Title</option>
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Assignees</label>
+            <div id="addTaskAssigneesList" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; min-height:0;"></div>
+            <div style="display:flex; gap:6px;">
+                <select id="addTaskAssigneeSelect" style="font-size:13px; flex:1;">
+                    <option value="">Add member…</option>
+                    @foreach (var m in Model.ProjectMembers)
+                    {
+                        <option value="@m.UserId">@m.DisplayName</option>
+                    }
+                </select>
+                <button class="btn btn-ghost btn-sm" type="button" onclick="addTaskAssignee()">Add</button>
+            </div>
+        </div>
+        <div id="addTaskError" style="display:none; font-size:13px; color:var(--danger); margin-top:4px;"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:20px;">
+            <button class="btn btn-ghost" onclick="closeAddTaskModal()">Cancel</button>
+            <button class="btn btn-primary" id="submitAddTaskBtn" onclick="submitAddTask()">Add task</button>
+        </div>
+    </div>
+</div>
+
+@* Delete task confirmation modal *@
+<div id="deleteTaskModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; padding:24px;">
+    <div class="card" style="margin:0; width:100%; max-width:380px;">
+        <h2 style="font-size:17px; margin-bottom:8px;">Delete task?</h2>
+        <p class="muted" style="font-size:14px; margin-bottom:24px; line-height:1.6;">
+            "<span id="deleteTaskName" style="color:var(--text); font-weight:500;"></span>" will be permanently removed.
+        </p>
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-danger" onclick="confirmDeleteTask()">Delete</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+<script>
+(function () {
+    const PROJECT_ID = @Model.ProjectId;
+    const CAN_EDIT = @Json.Serialize(canEdit);
+    const IS_OWNER = @Json.Serialize(isOwner);
+    const DISPLAY_NAME = @Json.Serialize(Model.CurrentUserDisplayName);
+    const MEMBER_MAP = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(memberMap));
+    const MEMBER_INFO = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.ProjectMembers.ToDictionary(m => m.DisplayName, m => m.Role)
+    ));
+
+    const URLS = {
+        addTask:              '@Url.Action("AddTask",             "Board", new { id = Model.ProjectId })',
+        moveTask:             '@Url.Action("MoveTask",            "Board", new { id = Model.ProjectId })',
+        updateTask:           '@Url.Action("UpdateTask",          "Board", new { id = Model.ProjectId })',
+        deleteTask:           '@Url.Action("DeleteTask",          "Board", new { id = Model.ProjectId })',
+        addAssignee:          '@Url.Action("AddAssignee",         "Board", new { id = Model.ProjectId })',
+        removeAssignee:       '@Url.Action("RemoveAssignee",      "Board", new { id = Model.ProjectId })',
+    };
+
+    function token() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+    }
+
+    function post(url, data) {
+        const body = new URLSearchParams({ ...data, __RequestVerificationToken: token() });
+        return fetch(url, { method: 'POST', body });
+    }
+
+    // SignalR connection.
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl('/hubs/collaboration')
+        .withAutomaticReconnect()
+        .build();
+
+    function updateColumnCount(columnId, delta) {
+        const col = document.querySelector(`.board-column[data-column-id="${columnId}"]`);
+        if (!col) return;
+        const badge = col.querySelector('.column-count');
+        if (badge) badge.textContent = Math.max(0, parseInt(badge.textContent || '0') + delta);
+    }
+
+    connection.on('OnTaskCreated', task => {
+        const list = document.getElementById(`task-list-${task.columnId}`);
+        if (!list) return;
+        // Normalise assignee user IDs from the API response shape
+        const assigneeUserIds = (task.assignees ?? []).map(a => a.userId ?? a);
+        window.__taskData[task.id] = { ...task, assigneeUserIds };
+        const empty = list.querySelector('.column-empty');
+        if (empty) empty.remove();
+        list.appendChild(buildTaskCard({ ...task, assigneeUserIds }));
+        updateColumnCount(task.columnId, +1);
+    });
+
+    connection.on('OnTaskMoved', ({ taskId, columnId, position }) => {
+        const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        const list = document.getElementById(`task-list-${columnId}`);
+        if (!card || !list) return;
+        const currentColumnId = parseInt(card.closest('.board-column')?.dataset.columnId);
+
+        // Update counts and empty placeholders if crossing columns
+        if (currentColumnId !== columnId) {
+            updateColumnCount(currentColumnId, -1);
+            updateColumnCount(columnId, +1);
+            const oldList = document.getElementById(`task-list-${currentColumnId}`);
+            if (oldList && oldList.querySelectorAll('.task-card').length === 1) {
+                const empty = document.createElement('span');
+                empty.className = 'column-empty';
+                empty.textContent = 'No tasks yet';
+                oldList.appendChild(empty);
+            }
+            list.querySelector('.column-empty')?.remove();
+        }
+
+        // Insert card at the correct position
+        const cards = list.querySelectorAll('.task-card');
+        if (position >= cards.length) {
+            list.appendChild(card);
+        } else {
+            // Skip over the card itself when counting (it may already be in this list)
+            let target = null;
+            let idx = 0;
+            for (const c of cards) {
+                if (c === card) continue;
+                if (idx === position) { target = c; break; }
+                idx++;
+            }
+            target ? list.insertBefore(card, target) : list.appendChild(card);
+        }
+    });
+
+    connection.on('OnTaskUpdated', task => {
+        const card = document.querySelector(`.task-card[data-task-id="${task.id}"]`);
+        if (card) {
+            card.querySelector('.task-card-title').textContent = task.title;
+        }
+    });
+
+    connection.on('OnTaskDeleted', taskId => {
+        const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        if (!card) return;
+        const col = card.closest('.board-column');
+        const colId = parseInt(col?.dataset.columnId);
+        card.remove();
+        if (colId) updateColumnCount(colId, -1);
+        const list = col?.querySelector('.task-list');
+        if (list && list.querySelectorAll('.task-card').length === 0) {
+            const empty = document.createElement('span');
+            empty.className = 'column-empty';
+            empty.textContent = 'No tasks yet';
+            list.appendChild(empty);
+        }
+    });
+
+    connection.on('UserJoined', name => addPresenceAvatar(name));
+    connection.on('UserLeft', name => removePresenceAvatar(name));
+
+    connection.start().then(() => {
+        connection.invoke('JoinProject', PROJECT_ID);
+        connection.invoke('AnnouncePresence', PROJECT_ID, DISPLAY_NAME);
+    });
+
+    window.addEventListener('beforeunload', () => {
+        connection.invoke('AnnounceLeave', PROJECT_ID, DISPLAY_NAME);
+    });
+
+    // Sortable drag and drop.
+    if (CAN_EDIT) {
+        document.querySelectorAll('.task-list').forEach(list => {
+            new Sortable(list, {
+                group: 'tasks',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: async function (evt) {
+                    const taskId = parseInt(evt.item.dataset.taskId);
+                    const toColumnId = parseInt(evt.to.dataset.columnId);
+                    const fromColumnId = parseInt(evt.from.dataset.columnId);
+                    const position = evt.newIndex;
+                    if (evt.from !== evt.to) {
+                        // Remove placeholder from destination, update counts
+                        evt.to.querySelector('.column-empty')?.remove();
+                        updateColumnCount(toColumnId, +1);
+                        updateColumnCount(fromColumnId, -1);
+                        // Add placeholder to source if now empty
+                        if (evt.from.querySelectorAll('.task-card').length === 0) {
+                            const empty = document.createElement('span');
+                            empty.className = 'column-empty';
+                            empty.textContent = 'No tasks yet';
+                            evt.from.appendChild(empty);
+                        }
+                    }
+                    await post(URLS.moveTask, { taskId, columnId: toColumnId, position });
+                }
+            });
+        });
+    }
+
+    // Task detail panel state.
+    let currentTask = null;
+
+    window.openTaskPanel = function (taskId) {
+        const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        currentTask = gatherTaskData(taskId);
+        renderPanel(currentTask);
+        document.getElementById('panelOverlay').classList.add('open');
+    };
+
+    window.closePanel = function () {
+        document.getElementById('panelOverlay').classList.remove('open');
+        currentTask = null;
+    };
+
+    function gatherTaskData(taskId) {
+        const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        return window.__taskData?.[taskId] ?? { id: taskId, title: card?.querySelector('.task-card-title')?.textContent ?? '' };
+    }
+
+    window.__taskData = {};
+    @foreach (var col in Model.Columns)
+    {
+        foreach (var task in col.Tasks)
+        {
+            <text>
+    window.__taskData[@task.Id] = {
+        id: @task.Id,
+        columnId: @task.ColumnId,
+        title: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(task.Title)),
+        description: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(task.Description ?? string.Empty)),
+        assigneeUserIds: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(task.AssigneeUserIds))
+    };
+            </text>
+        }
+    }
+
+    function renderPanel(task) {
+        document.getElementById('panelTitle').textContent = task.title;
+        document.getElementById('panelDesc').value = task.description ?? '';
+
+        const assigneesList = document.getElementById('assigneesList');
+        assigneesList.innerHTML = '';
+        (task.assigneeUserIds ?? []).forEach(uid => {
+            const name = MEMBER_MAP[uid] ?? uid;
+            const row = document.createElement('div');
+            row.className = 'assignee-row';
+            row.innerHTML = `<span class="assignee-initials">${name.charAt(0).toUpperCase()}</span> <span style="font-size:14px;">${name}</span>`;
+            if (CAN_EDIT) {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-ghost btn-sm';
+                btn.textContent = '✕';
+                btn.style.marginLeft = 'auto';
+                btn.onclick = () => removeAssigneeFromPanel(uid, row);
+                row.appendChild(btn);
+            }
+            assigneesList.appendChild(row);
+        });
+
+    }
+
+    window.saveTaskChanges = async function () {
+        if (!currentTask) return;
+        const saveBtn = document.querySelector('[onclick="saveTaskChanges()"]');
+        const title = document.getElementById('panelTitle').textContent.trim();
+        const description = document.getElementById('panelDesc').value;
+
+        if (!title) return;
+
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
+        const formData = new URLSearchParams({
+            __RequestVerificationToken: token(),
+            taskId: currentTask.id,
+            title,
+            description: description ?? '',
+            priority: 0
+        });
+
+        try {
+            const res = await fetch(URLS.updateTask, { method: 'POST', body: formData });
+            if (res.ok) {
+                const card = document.querySelector(`.task-card[data-task-id="${currentTask.id}"]`);
+                if (card) card.querySelector('.task-card-title').textContent = title;
+                currentTask.title = title;
+                currentTask.description = description;
+                currentTask.priority = priority;
+                if (saveBtn) { saveBtn.textContent = 'Saved!'; setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save changes'; }, 1500); }
+            } else {
+                if (saveBtn) saveBtn.textContent = 'Save failed';
+                setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save changes'; }, 2000);
+            }
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
+        }
+    };
+
+    window.deleteCurrentTask = function () {
+        if (!currentTask) return;
+        document.getElementById('deleteTaskName').textContent = currentTask.title;
+        document.getElementById('deleteTaskModal').style.display = 'flex';
+    };
+
+    window.closeDeleteModal = function () {
+        document.getElementById('deleteTaskModal').style.display = 'none';
+    };
+
+    window.confirmDeleteTask = async function () {
+        if (!currentTask) return;
+        const res = await post(URLS.deleteTask, { taskId: currentTask.id });
+        if (res.ok) {
+            document.querySelector(`.task-card[data-task-id="${currentTask.id}"]`)?.remove();
+            closeDeleteModal();
+            closePanel();
+        }
+    };
+
+    document.getElementById('deleteTaskModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('deleteTaskModal')) closeDeleteModal();
+    });
+
+    window.addAssignee = async function () {
+        const select = document.getElementById('assigneeSelect');
+        const uid = select.value;
+        if (!uid || !currentTask) return;
+        const res = await post(URLS.addAssignee, { taskId: currentTask.id, userId: uid });
+        if (res.ok) {
+            if (!currentTask.assigneeUserIds.includes(uid)) currentTask.assigneeUserIds.push(uid);
+            renderPanel(currentTask);
+            select.value = '';
+        }
+    };
+
+    function removeAssigneeFromPanel(uid, row) {
+        if (!currentTask) return;
+        post(URLS.removeAssignee, { taskId: currentTask.id, userId: uid }).then(res => {
+            if (res.ok) {
+                currentTask.assigneeUserIds = currentTask.assigneeUserIds.filter(id => id !== uid);
+                row.remove();
+            }
+        });
+    }
+
+    let pendingAssignees = [];
+
+    window.promptAddTask = function () {
+        document.getElementById('addTaskTitle').value = '';
+        document.getElementById('addTaskDescription').value = '';
+        document.getElementById('addTaskAssigneesList').innerHTML = '';
+        document.getElementById('addTaskAssigneeSelect').value = '';
+        document.getElementById('addTaskError').style.display = 'none';
+        pendingAssignees = [];
+        document.getElementById('addTaskModal').style.display = 'flex';
+        setTimeout(() => document.getElementById('addTaskTitle').focus(), 50);
+    };
+
+    window.closeAddTaskModal = function () {
+        document.getElementById('addTaskModal').style.display = 'none';
+    };
+
+    window.addTaskAssignee = function () {
+        const select = document.getElementById('addTaskAssigneeSelect');
+        const uid = select.value;
+        const name = select.options[select.selectedIndex]?.text;
+        if (!uid || pendingAssignees.includes(uid)) return;
+        pendingAssignees.push(uid);
+
+        const chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-flex; align-items:center; gap:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:3px 8px 3px 6px; font-size:12px; font-weight:500;';
+        chip.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--accent-dim);color:var(--accent);font-size:10px;font-weight:700;">${name.charAt(0).toUpperCase()}</span> ${name} <button onclick="removeAddTaskAssignee('${uid}', this.parentElement)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:0;line-height:1;margin-left:2px;">✕</button>`;
+        document.getElementById('addTaskAssigneesList').appendChild(chip);
+        select.value = '';
+    };
+
+    window.removeAddTaskAssignee = function (uid, chip) {
+        pendingAssignees = pendingAssignees.filter(id => id !== uid);
+        chip.remove();
+    };
+
+    window.submitAddTask = async function () {
+        const titleEl = document.getElementById('addTaskTitle');
+        const errorEl = document.getElementById('addTaskError');
+        const btn = document.getElementById('submitAddTaskBtn');
+        const title = titleEl.value.trim();
+        const description = document.getElementById('addTaskDescription').value.trim();
+        const columnId = document.getElementById('addTaskColumn').value;
+
+        if (!title) { titleEl.focus(); return; }
+
+        btn.disabled = true;
+        btn.textContent = 'Adding…';
+        errorEl.style.display = 'none';
+
+        // Build form data — send description and all assignees in one shot
+        const formData = new URLSearchParams({
+            __RequestVerificationToken: token(),
+            columnId,
+            title,
+            description: description ?? ''
+        });
+        pendingAssignees.forEach(uid => formData.append('assigneeUserIds', uid));
+
+        try {
+            const res = await fetch(URLS.addTask, { method: 'POST', body: formData });
+            if (res.ok) {
+                closeAddTaskModal();
+            } else {
+                errorEl.textContent = `Failed to add task (${res.status}). Is the Tasks service running?`;
+                errorEl.style.display = 'block';
+            }
+        } catch (err) {
+            errorEl.textContent = 'Could not reach the server. Please try again.';
+            errorEl.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Add task';
+        }
+    };
+
+    document.getElementById('addTaskModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('addTaskModal')) closeAddTaskModal();
+    });
+
+    document.getElementById('addTaskTitle').addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeAddTaskModal();
+    });
+
+    function buildTaskCard(task) {
+        const div = document.createElement('div');
+        div.className = 'task-card';
+        div.dataset.taskId = task.id;
+        div.onclick = () => openTaskPanel(task.id);
+
+        const assigneeHtml = (task.assigneeUserIds ?? []).map(uid => {
+            const name = MEMBER_MAP[uid] ?? '?';
+            return `<span class="assignee-initials">${name.charAt(0).toUpperCase()}<span class="assignee-tooltip">${name}</span></span>`;
+        }).join('');
+
+        const descHtml = task.description ? `<div class="task-card-desc">${task.description}</div>` : '';
+
+        div.innerHTML = `
+            <div class="task-card-title">${task.title}</div>
+            ${descHtml}
+            <div class="task-card-footer">
+                <div class="task-assignees">${assigneeHtml}</div>
+            </div>`;
+        return div;
+    }
+
+    // Presence strip.
+    const presenceAvatars = {};
+
+    function addPresenceAvatar(name) {
+        if (name === DISPLAY_NAME || presenceAvatars[name]) return;
+        const role = MEMBER_INFO[name] ?? 'Guest';
+        const avatar = document.createElement('span');
+        avatar.className = 'presence-avatar';
+        avatar.innerHTML = `${name.charAt(0).toUpperCase()}<span class="presence-tooltip">${name} &middot; ${role}</span>`;
+        presenceAvatars[name] = avatar;
+        document.getElementById('presenceStrip').appendChild(avatar);
+    }
+
+    function removePresenceAvatar(name) {
+        presenceAvatars[name]?.remove();
+        delete presenceAvatars[name];
+    }
+})();
+</script>
+}
+

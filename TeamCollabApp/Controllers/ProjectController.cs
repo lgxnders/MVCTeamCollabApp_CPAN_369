@@ -2,13 +2,15 @@ using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using TeamCollabApp.Data;
+using TeamCollabApp.Hubs;
 using TeamCollabApp.Models;
 using TeamCollabApp.Services;
 using TeamCollabApp.ViewModels;
 
-namespace YourApp.Controllers
+namespace TeamCollabApp.Controllers
 {
 
     [Authorize]
@@ -16,6 +18,7 @@ namespace YourApp.Controllers
         AppDbContext db,
         UserManager<ApplicationUser> userManager,
         IGuestSessionService guestSessionService,
+        IHubContext<CollaborationHub> hubContext,
         ILogger<ProjectsController> logger) : Controller
     {
 
@@ -42,6 +45,7 @@ namespace YourApp.Controllers
                     Description = m.Project.Description,
                     IsPublicLink = m.Project.IsPublicLink,
                     CreatedAt = m.Project.CreatedAt,
+                    UpdatedAt = m.Project.UpdatedAt,
                     OwnerDisplayName = m.Project.Owner.DisplayName,
                     OtherMemberCount = m.Project.Memberships
                         .Count(mb => mb.UserId != userId)
@@ -51,13 +55,34 @@ namespace YourApp.Controllers
             return View(projects);
         }
 
+        [AllowAnonymous]
         public async Task<IActionResult> Details(int id)
         {
             var userId = GetCurrentUserId();
-            if (userId is null) return Unauthorized();
+            ProjectMembership? membership = null;
+            int? currentGuestSessionId = null;
 
-            var role = await GetUserRoleAsync(id, userId);
-            if (role is null) return Forbid();
+            if (userId != null)
+            {
+                membership = await db.ProjectMemberships
+                    .FirstOrDefaultAsync(m => m.ProjectId == id && m.UserId == userId);
+            }
+            else
+            {
+                var guestToken = HttpContext.Request.Cookies["guest_session"];
+                if (guestToken != null)
+                {
+                    var guest = await guestSessionService.ResolveAsync(guestToken);
+                    if (guest != null)
+                    {
+                        currentGuestSessionId = guest.Id;
+                        membership = await db.ProjectMemberships
+                            .FirstOrDefaultAsync(m => m.ProjectId == id && m.GuestSessionId == guest.Id);
+                    }
+                }
+            }
+
+            if (membership is null) return Forbid();
 
             var project = await db.Projects
                 .Include(p => p.Owner)
@@ -76,13 +101,15 @@ namespace YourApp.Controllers
                 IsPublicLink = project.IsPublicLink,
                 CreatedAt = project.CreatedAt,
                 OwnerDisplayName = project.Owner.DisplayName,
-                CurrentUserRole = role.Value,
+                CurrentUserRole = membership.Role,
+                IsGuest = userId == null,
                 Members = project.Memberships.Select(m => new MemberViewModel
                 {
                     MembershipId = m.Id,
                     DisplayName = m.DisplayName,
                     Role = m.Role,
                     IsGuest = m.GuestSessionId.HasValue,
+                    IsCurrentUser = userId != null ? m.UserId == userId : m.GuestSessionId == currentGuestSessionId,
                     JoinedAt = m.JoinedAt
                 }).ToList()
             };
@@ -261,6 +288,7 @@ namespace YourApp.Controllers
                         });
                         await db.SaveChangesAsync();
                         logger.LogInformation("User {UserId} joined project {ProjectId} via public link", userId, project.Id);
+                        await hubContext.Clients.Group($"details-{project.Id}").SendAsync("MemberJoined");
                     }
                     catch (DbUpdateException ex)
                     {
@@ -289,6 +317,7 @@ namespace YourApp.Controllers
                         });
                         await db.SaveChangesAsync();
                         logger.LogInformation("Guest {GuestId} joined project {ProjectId} via public link", guest.Id, project.Id);
+                        await hubContext.Clients.Group($"details-{project.Id}").SendAsync("MemberJoined");
                     }
                     catch (DbUpdateException ex)
                     {
@@ -296,8 +325,63 @@ namespace YourApp.Controllers
                     }
                 }
 
-                return RedirectToAction("GuestView", new { id = project.Id });
+                return RedirectToAction(nameof(Details), new { id = project.Id });
             }
+        }
+
+        [AllowAnonymous]
+        public async Task<IActionResult> MembersPartial(int id)
+        {
+            var userId = GetCurrentUserId();
+            ProjectMembership? membership = null;
+            int? currentGuestSessionId = null;
+
+            if (userId != null)
+            {
+                membership = await db.ProjectMemberships
+                    .FirstOrDefaultAsync(m => m.ProjectId == id && m.UserId == userId);
+            }
+            else
+            {
+                var guestToken = HttpContext.Request.Cookies["guest_session"];
+                if (guestToken != null)
+                {
+                    var guest = await guestSessionService.ResolveAsync(guestToken);
+                    if (guest != null)
+                    {
+                        currentGuestSessionId = guest.Id;
+                        membership = await db.ProjectMemberships
+                            .FirstOrDefaultAsync(m => m.ProjectId == id && m.GuestSessionId == guest.Id);
+                    }
+                }
+            }
+
+            if (membership is null) return Forbid();
+
+            var project = await db.Projects
+                .Include(p => p.Memberships).ThenInclude(m => m.User)
+                .Include(p => p.Memberships).ThenInclude(m => m.GuestSession)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (project is null) return NotFound();
+
+            var vm = new ProjectDetailsViewModel
+            {
+                Id = id,
+                CurrentUserRole = membership.Role,
+                IsGuest = userId == null,
+                Members = project.Memberships.Select(m => new MemberViewModel
+                {
+                    MembershipId = m.Id,
+                    DisplayName = m.DisplayName,
+                    Role = m.Role,
+                    IsGuest = m.GuestSessionId.HasValue,
+                    IsCurrentUser = userId != null ? m.UserId == userId : m.GuestSessionId == currentGuestSessionId,
+                    JoinedAt = m.JoinedAt
+                }).ToList()
+            };
+
+            return PartialView("_MembersPartial", vm);
         }
 
         [AllowAnonymous]
@@ -358,6 +442,7 @@ namespace YourApp.Controllers
                     await db.SaveChangesAsync();
                     logger.LogInformation("User {InviterId} invited {InviteeDisplayName} ({InviteeId}) to project {ProjectId} as {Role}",
                         userId, invitee.DisplayName, invitee.Id, vm.ProjectId, vm.Role);
+                    await hubContext.Clients.Group($"details-{vm.ProjectId}").SendAsync("MemberJoined");
                 }
 
                 await tx.CommitAsync();
@@ -386,6 +471,12 @@ namespace YourApp.Controllers
             var callerRole = await GetUserRoleAsync(membership.ProjectId, userId);
             if (callerRole < ProjectRole.Owner) return Forbid();
 
+            if (membership.UserId == userId && newRole < ProjectRole.Owner)
+            {
+                TempData["Error"] = "You cannot demote yourself.";
+                return RedirectToAction(nameof(Details), new { id = membership.ProjectId });
+            }
+
             try
             {
                 if (membership.Role == ProjectRole.Owner && newRole < ProjectRole.Owner)
@@ -411,6 +502,8 @@ namespace YourApp.Controllers
                     membership.Role = newRole;
                     await db.SaveChangesAsync();
                 }
+
+                await hubContext.Clients.Group($"details-{membership.ProjectId}").SendAsync("MemberJoined");
             }
             catch (DbUpdateException ex)
             {
@@ -439,6 +532,7 @@ namespace YourApp.Controllers
             {
                 db.ProjectMemberships.Remove(membership);
                 await db.SaveChangesAsync();
+                await hubContext.Clients.Group($"details-{membership.ProjectId}").SendAsync("MemberJoined");
             }
             catch (DbUpdateException ex)
             {

@@ -1,24 +1,30 @@
 @model TeamCollabApp.ViewModels.CreateProjectViewModel
 @{ ViewData["Title"] = "New Project"; }
 
-<div class="page-header">
-    <div>
-        <h1>New Project</h1>
-        <p class="muted" style="margin-top:4px; font-size:14px;">Fill in the details below to create your project.</p>
-    </div>
-    <div class="page-header-actions">
-        <a class="btn btn-ghost" asp-action="Index">← Back</a>
-    </div>
-</div>
+<div style="max-width:580px; margin:0 auto;">
 
-<div style="max-width:560px;">
-    <div class="card">
+    <div style="margin-bottom:32px;">
+        <a class="btn btn-ghost btn-sm" asp-action="Index" style="margin-bottom:20px; display:inline-flex;">← Back to Projects</a>
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:8px;">
+            <div style="width:44px; height:44px; border-radius:12px; background:var(--accent-dim); border:1px solid rgba(22,163,74,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+            </div>
+            <div>
+                <h1 id="project-title" style="font-size:24px; letter-spacing:-0.5px; margin-bottom:2px;">New Project</h1>
+                <p class="muted" style="font-size:14px;">Set up your project and start collaborating.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="padding:32px;">
         <form asp-action="Create" method="post">
             @Html.AntiForgeryToken()
 
             <div class="form-group">
                 <label asp-for="Name">Project Name</label>
-                <input asp-for="Name" type="text" placeholder="e.g. Q3 Campaign" autocomplete="off" />
+                <input id="project-name-input" asp-for="Name" type="text" placeholder="e.g. Q3 Campaign" autocomplete="off" style="font-size:16px; padding:12px 14px;" />
                 <span asp-validation-for="Name" class="field-validation-error"></span>
             </div>
 
@@ -27,26 +33,35 @@
                     Description
                     <span class="muted" style="text-transform:none; letter-spacing:0; font-weight:400; margin-left:4px;">(optional)</span>
                 </label>
-                <textarea asp-for="Description" placeholder="What is this project about?"></textarea>
+                <textarea asp-for="Description" placeholder="What is this project about?" style="min-height:90px;"></textarea>
                 <span asp-validation-for="Description" class="field-validation-error"></span>
             </div>
 
-            <hr class="divider" style="margin:20px 0;">
-
-            <div class="form-group">
-                <label class="checkbox-row" style="cursor:pointer;">
-                    <input asp-for="IsPublicLink" type="checkbox" />
-                    Enable public share link
+            <div style="border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 20px; background:var(--surface); margin-bottom:28px;">
+                <label class="checkbox-row" style="cursor:pointer; align-items:flex-start; gap:14px;">
+                    <input asp-for="IsPublicLink" type="checkbox" style="margin-top:2px;" />
+                    <div>
+                        <div style="font-size:14px; font-weight:600; color:var(--text); margin-bottom:3px;">Enable public share link</div>
+                        <div class="muted" style="font-size:13px; font-weight:400; text-transform:none; letter-spacing:0;">Anyone with the link can join as a Viewer - no account required.</div>
+                    </div>
                 </label>
-                <p class="muted" style="margin-top:8px; font-size:13px; padding-left:26px;">
-                    Anyone with the link can join as a Viewer - no account required for guests.
-                </p>
             </div>
 
-            <div style="display:flex; gap:10px; margin-top:24px;">
-                <button class="btn btn-primary" type="submit">Create Project</button>
-                <a class="btn btn-ghost" asp-action="Index">Cancel</a>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-primary" type="submit" style="padding:10px 24px; font-size:15px;">Create Project</button>
+                <a class="btn btn-ghost" asp-action="Index" style="padding:10px 20px; font-size:15px;">Cancel</a>
             </div>
         </form>
     </div>
+
 </div>
+
+@section Scripts {
+    <script>
+        const input = document.getElementById('project-name-input');
+        const title = document.getElementById('project-title');
+        input.addEventListener('input', () => {
+            title.textContent = input.value.trim() || 'New Project';
+        });
+    </script>
+}

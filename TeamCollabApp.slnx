@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="TeamCollabApp/TeamCollabApp.csproj" />
+  <Project Path="TeamCollabApp.TasksApi/TeamCollabApp.TasksApi.csproj" />
+  <Project Path="TeamCollabApp.SearchApi/TeamCollabApp.SearchApi.csproj" />
 </Solution>

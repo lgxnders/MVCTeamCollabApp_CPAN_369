@@ -10,6 +10,7 @@ namespace TeamCollabApp.ViewModels
         public string? Description { get; set; }
         public bool IsPublicLink { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
         public string OwnerDisplayName { get; set; } = string.Empty;
         public int OtherMemberCount { get; set; }
     }
@@ -48,6 +49,7 @@ namespace TeamCollabApp.ViewModels
         public DateTime CreatedAt { get; set; }
         public string OwnerDisplayName { get; set; } = string.Empty;
         public ProjectRole CurrentUserRole { get; set; }
+        public bool IsGuest { get; set; }
         public List<MemberViewModel> Members { get; set; } = [];
     }
 
@@ -57,6 +59,7 @@ namespace TeamCollabApp.ViewModels
         public string DisplayName { get; set; } = string.Empty;
         public ProjectRole Role { get; set; }
         public bool IsGuest { get; set; }
+        public bool IsCurrentUser { get; set; }
         public DateTime JoinedAt { get; set; }
     }
 

@@ -20,9 +20,10 @@ public class GuestSessionService(
 
     private static readonly string[] AnimalNames =
     [
-        "Lemur", "Capybara", "Axolotl", "Quokka", "Pangolin",
-        "Narwhal", "Binturong", "Tapir", "Aye-aye", "Wombat",
-        "Fennec", "Meerkat", "Numbat", "Okapi", "Kinkajou"
+        "Capybara", "Axolotl", "Coyote", "Narwhal",
+        "Dog", "Wombat", "Fox", "Owl",
+        "Caterpillar", "Meerkat", "Bat", "Kangaroo",
+        "Lion", "Elephant", "Penguin", "Turtle"
     ];
 
     public async Task<GuestSession> GetOrCreateAsync(HttpContext httpContext)

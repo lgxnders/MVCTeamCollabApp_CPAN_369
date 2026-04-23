@@ -37,6 +37,8 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
     var seeder = new DatabaseSeeder(scope.ServiceProvider);
     await seeder.SeedAsync();
 }

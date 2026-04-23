@@ -496,9 +496,10 @@
     });
 
     connection.on('OnTaskUpdated', task => {
-        const card = document.querySelector(`.task-card[data-task-id="${task.id}"]`);
-        if (card) {
-            card.querySelector('.task-card-title').textContent = task.title;
+        updateTaskCard(task.id, task.title, task.description ?? '');
+        if (window.__taskData[task.id]) {
+            window.__taskData[task.id].title = task.title;
+            window.__taskData[task.id].description = task.description ?? '';
         }
     });
 
@@ -518,16 +519,14 @@
         }
     });
 
+    connection.on('PresenceList', names => {
+        names.forEach(name => addPresenceAvatar(name));
+    });
     connection.on('UserJoined', name => addPresenceAvatar(name));
     connection.on('UserLeft', name => removePresenceAvatar(name));
 
     connection.start().then(() => {
-        connection.invoke('JoinProject', PROJECT_ID);
-        connection.invoke('AnnouncePresence', PROJECT_ID, DISPLAY_NAME);
-    });
-
-    window.addEventListener('beforeunload', () => {
-        connection.invoke('AnnounceLeave', PROJECT_ID, DISPLAY_NAME);
+        connection.invoke('JoinProject', PROJECT_ID, DISPLAY_NAME);
     });
 
     // Sortable drag and drop.
@@ -622,6 +621,23 @@
 
     }
 
+    function updateTaskCard(taskId, title, description) {
+        const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+        if (!card) return;
+        card.querySelector('.task-card-title').textContent = title;
+        let descEl = card.querySelector('.task-card-desc');
+        if (description) {
+            if (!descEl) {
+                descEl = document.createElement('div');
+                descEl.className = 'task-card-desc';
+                card.querySelector('.task-card-title').after(descEl);
+            }
+            descEl.textContent = description;
+        } else if (descEl) {
+            descEl.remove();
+        }
+    }
+
     window.saveTaskChanges = async function () {
         if (!currentTask) return;
         const saveBtn = document.querySelector('[onclick="saveTaskChanges()"]');
@@ -643,11 +659,14 @@
         try {
             const res = await fetch(URLS.updateTask, { method: 'POST', body: formData });
             if (res.ok) {
-                const card = document.querySelector(`.task-card[data-task-id="${currentTask.id}"]`);
-                if (card) card.querySelector('.task-card-title').textContent = title;
+                updateTaskCard(currentTask.id, title, description);
                 currentTask.title = title;
                 currentTask.description = description;
-                currentTask.priority = priority;
+                currentTask.priority = 0;
+                if (window.__taskData[currentTask.id]) {
+                    window.__taskData[currentTask.id].title = title;
+                    window.__taskData[currentTask.id].description = description;
+                }
                 if (saveBtn) { saveBtn.textContent = 'Saved!'; setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save changes'; }, 1500); }
             } else {
                 if (saveBtn) saveBtn.textContent = 'Save failed';
